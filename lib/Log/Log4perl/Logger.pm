@@ -18,7 +18,8 @@ use constant _INTERNAL_DEBUG => 0;
 our $ROOT_LOGGER;
 our $LOGGERS_BY_NAME = {};
 our %APPENDER_BY_NAME = ();
-our $INITIALIZED;
+our $INITIALIZED = 0;
+our $NON_INIT_WARNED;
 
 __PACKAGE__->reset();
 
@@ -77,6 +78,7 @@ sub reset {
     }
     %APPENDER_BY_NAME   = ();
     undef $INITIALIZED;
+    undef $NON_INIT_WARNED;
     Log::Log4perl::Appender::reset();
 
     #clear out all the existing appenders
@@ -574,7 +576,7 @@ sub log {
     $_[0] = $LOGGERS_BY_NAME->{$_[0]->{category}} if 
         defined $Log::Log4perl::Config::WATCHER;
 
-    init_warn() unless $INITIALIZED;
+    init_warn() unless $INITIALIZED or $NON_INIT_WARNED;
 
     croak "priority $priority isn't numeric" if ($priority =~ /\D/);
 
@@ -677,7 +679,7 @@ sub create_log_level_methods {
   *{__PACKAGE__ . "::$lclevel"} = sub {
         print "$lclevel: ($_[0]->{category}/$_[0]->{level}) [@_]\n" 
             if _INTERNAL_DEBUG;
-        init_warn() unless $INITIALIZED;
+        init_warn() unless $INITIALIZED or $NON_INIT_WARNED;
         $_[0]->{$level}->(@_, $level);
      };
 
@@ -709,7 +711,7 @@ sub init_warn {
     CORE::warn "Log4perl: Seems like no initialization happened. " .
                "Forgot to call init()?\n";
     # Only tell this once;
-    $INITIALIZED = 1;
+    $NON_INIT_WARNED = 1;
 }
 
 #######################################################

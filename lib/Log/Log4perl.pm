@@ -17,7 +17,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '0.46';
+our $VERSION = '0.47';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -118,7 +118,8 @@ sub import {
             my $lclevel = lc($_);
             *{"$caller_pkg\::$_"} = sub { 
                 Log::Log4perl::Logger::init_warn() unless 
-                               $Log::Log4perl::Logger::INITIALIZED;
+                    $Log::Log4perl::INITIALIZED or
+                    $Log::Log4perl::Logger::NON_INIT_WARNED;
                 $logger->{$level}->($logger, @_, $level);
             };
         }
@@ -127,21 +128,23 @@ sub import {
 
         *{"$caller_pkg\::LOGDIE"} = sub {
             Log::Log4perl::Logger::init_warn() unless 
-                           $Log::Log4perl::Logger::INITIALIZED;
+                    $Log::Log4perl::INITIALIZED or
+                    $Log::Log4perl::Logger::NON_INIT_WARNED;
             $logger->{FATAL}->($logger, @_, "FATAL");
             CORE::die(Log::Log4perl::Logger::callerline(join '', @_));
         };
 
         *{"$caller_pkg\::LOGWARN"} = sub { 
             Log::Log4perl::Logger::init_warn() unless 
-                           $Log::Log4perl::Logger::INITIALIZED;
+                    $Log::Log4perl::INITIALIZED or
+                    $Log::Log4perl::Logger::NON_INIT_WARNED;
             $logger->{WARN}->($logger, @_, "WARN");
             CORE::warn(Log::Log4perl::Logger::callerline(join '', @_));
         };
     }
 
     if(exists $tags{':nowarn'}) {
-        $Log::Log4perl::Logger::INITIALIZED = 1;
+        $Log::Log4perl::Logger::NON_INIT_WARNED = 1;
         delete $tags{':nowarn'};
     }
 
@@ -270,6 +273,8 @@ sub easy_init { # Initialize the root logger with a screen appender
         $log->level($logger->{level});
         $log->add_appender($app);
     }
+
+    $Log::Log4perl::INITIALIZED = 1;
 }
 
 ##################################################
@@ -298,6 +303,27 @@ sub get_logger {  # Get an instance (shortcut)
 sub appenders {  # Get all defined appenders hashref
 ##################################################
     return \%Log::Log4perl::Logger::APPENDER_BY_NAME;
+}
+
+##################################################
+sub infiltrate_lwp {  # 
+##################################################
+    no warnings qw(redefine);
+
+    my $l4p_wrapper = sub {
+        my($prio, @message) = @_;
+        $Log::Log4perl::caller_depth += 2;
+        get_logger(caller(1))->log($prio, @message);
+        $Log::Log4perl::caller_depth -= 2;
+    };
+
+    *LWP::Debug::trace = sub { 
+        $l4p_wrapper->($INFO, @_); 
+    };
+    *LWP::Debug::conns =
+    *LWP::Debug::debug = sub { 
+        $l4p_wrapper->($DEBUG, @_); 
+    };
 }
 
 1;
@@ -2037,6 +2063,25 @@ names to their Log::Log4perl::Appender object references.
 
 =back
 
+=head1 Dirty Tricks
+
+=over 4
+
+=item infiltrate_lwp()
+
+The famous LWP::UserAgent module isn't Log::Log4perl-enabled. Often, though,
+especially when tracing Web-related problems, it would be helpful to get
+some insight on what's happening inside LWP::UserAgent. Ideally, LWP::UserAgent
+would even play along in the Log::Log4perl framework.
+
+A call to C<Log::Log4perl-E<gt>infiltrate_lwp()> does exactly this. 
+In a very rude way, it pulls the rug from under LWP::UserAgent and transforms
+its C<debug/conn> messages into C<debug()> calls of loggers of the category
+C<"LWP::UserAgent">. Similarily, C<LWP::UserAgent>'s C<trace> messages 
+are turned into C<Log::Log4perl>'s C<info()> method calls.
+
+=back
+
 =head1 EXAMPLE
 
 A simple example to cut-and-paste and get started:
@@ -2158,6 +2203,7 @@ our
     Kevin Goess <cpan@goess.org>
 
     Contributors:
+    Hutton Davidson <Davidson.Hutton@ftid.com>
     Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
     James FitzGibbon <james.fitzgibbon@target.com>
     Dennis Gregorovic <dgregor@redhat.com>
