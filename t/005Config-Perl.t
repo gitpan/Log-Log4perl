@@ -11,7 +11,6 @@ BEGIN { plan tests => 2 };
 
 
 use Log::Log4perl;
-use Data::Dumper;
 use Log::Log4perl::TestBuffer;
 
 my $EG_DIR = "eg";
@@ -32,4 +31,4 @@ my $data = <FILE>;
 close FILE;
 
 unlink $LOGFILE;
-ok($data, "t/005Config-Perl.t 28 DEBUG N/A  - Gurgel\n");
+ok($data, "t/005Config-Perl.t 27 DEBUG N/A  - Gurgel\n");

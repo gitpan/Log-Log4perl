@@ -24,6 +24,8 @@ my @LEVEL_MAP_A = qw(
  FATAL  emergency
 );
 
+our $DEFAULT_WATCH_DELAY = 60; #seconds
+
 ##################################################
 sub init {
 ##################################################
@@ -75,7 +77,8 @@ sub init {
         my ($level, @appnames) = split /\s*,\s*/, $value;
 
         $logger->level(
-            Log::Log4perl::Level::to_priority($level));
+            Log::Log4perl::Level::to_priority($level),
+            'dont_reset_all');
 
         for my $appname (@appnames) {
 
@@ -114,11 +117,32 @@ sub init {
                 }
             }
 
-            $logger->add_appender($appender, 
-                                  $appenders_created{$appname});
+            $logger->add_appender($appender, 'dont_reset_all');
             set_appender_by_name($appname, $appender, \%appenders_created);
         }
     }
+
+    #now we're done, set up all the output methods (e.g. ->debug('...'))
+    Log::Log4perl::Logger::reset_all_output_methods();
+}
+
+
+###########################################
+sub init_and_watch {
+###########################################
+    my ($class, $config, $delay) = @_;
+
+    defined ($delay) or $delay = $DEFAULT_WATCH_DELAY;  
+
+    $delay =~ /\D/ && die "illegal non-numerica value for delay: $delay";
+
+    if (ref $config) {
+        die "can only watch a file, not a string of configuration information";
+    }
+
+    Log::Log4perl::Logger::init_watch($delay);
+
+    &init($class, $config);
 }
 
 ###########################################
@@ -182,6 +206,7 @@ sub config_read {
     if (ref $config) {
         @text = split(/\n/,$$config);
     }else{
+        Log::Log4perl::Logger::set_file_to_watch($config);
         open FILE, "<$config" or die "Cannot open config file '$config'";
         @text = <FILE>;
         close FILE;
@@ -189,10 +214,22 @@ sub config_read {
 
     my $data = {};
 
-    for(@text) {
+    #for(@text) {
+    while (@text) {
+        $_ = shift @text;
         s/#.*//;
-        next if /^\s*$/;
+        next unless /\S/;
+    
+        while (/(.+?)\\$/) {
+            my $prev = $1;
+            my $next = shift(@text);
+            $next =~ s/^ +//g;  #leading spaces
+            $next =~ s/#.*//;
+            $_ = $prev. $next;
+            chomp;
+        }
         if(my($key, $val) = /(\S+?)\s*=\s*(.*)/) {
+            $val =~ s/\s+$//;
             $key = unlog4j($key);
             #$key =~ s#^org\.apache\.##;
             #$key =~ s#^log4j\.##;
