@@ -2,6 +2,13 @@
 Revision history for Log::Log4perl
 ##################################################
 
+0.17 07/11/2002
+    * Updated documentation according to Dave Rolsky's suggestions
+    * Lots of other documentation fixes
+    * Fixed bug in renderer, %M was displayed as the logger function
+      bumped up the level by 1
+    * Fixed %% bug
+
 0.16 07/10/2002
     * Updated documentation for CPAN release
     * Applied Kevin's patch to limit it to one Log::Dispatcher
@@ -115,6 +122,9 @@ TODO:
 
 Kevin:
 ##################################################
+    * Dave Rolsky says: A couple other things: The JavaMap docs mention that SocketAppender 
+      has no Log::Dispatch equivalent.  You could create an IO::Socket object and pass 
+      it to Log::Dispatch::Handle.
     * I think we should not install Log::Dispatch::Buffer, we only use
       it for our test cases, we shouldn't infringe on the Log::Dispatch
       namespace, should we?
@@ -123,7 +133,9 @@ Kevin:
       DONE Create new module negotiating between Java-style config files
       and perl-style appenders
     * Module for reading XML-style config files
-    * Please use 80 chars max line width
+    * revisit  CategoryFactory idea, give the user opportunity to override
+      log levels with their own?
+OK Please use 80 chars max line width
 DONE (is gone) redo level_str() hack
 DONE (Dispatch singleton) question - are appenders created just once if
 they're reused in the config file?
