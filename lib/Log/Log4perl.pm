@@ -13,7 +13,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '0.37';
+our $VERSION = '0.38';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -205,6 +205,9 @@ sub easy_init { # Initialize the root logger with a screen appender
     if(ref($class) or $class =~ /^\d+$/) {
         unshift @args, $class;
     }
+
+    # Reset everything first
+    Log::Log4perl->reset();
 
     my @loggers = ();
 
@@ -2081,6 +2084,7 @@ our
     Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
     James FitzGibbon <james.fitzgibbon@target.com>
     Paul Harrington <Paul-Harrington@deshaw.com>
+    Brett Rann <brettrann@mail.com>
     Erik Selberg <erik@selberg.com>
     Aaron Straup Cope <asc@vineyard.net>
     Mac Yang <mac@proofpoint.com>
