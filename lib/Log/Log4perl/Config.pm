@@ -14,6 +14,7 @@ use Log::Dispatch::File;
 use Log::Log4perl::JavaMap;
 use Log::Log4perl::Filter;
 use Log::Log4perl::Filter::Boolean;
+use Log::Log4perl::Config::Watch;
 
 use constant DEBUG => 0;
 
@@ -29,7 +30,8 @@ my @LEVEL_MAP_A = qw(
  FATAL  emergency
 );
 
-our $DEFAULT_WATCH_DELAY = 60; #seconds
+our $WATCHER;
+our $DEFAULT_WATCH_DELAY = 60; # seconds
 
 ###########################################
 sub init {
@@ -44,21 +46,30 @@ sub init_and_watch {
 ###########################################
     my ($class, $config, $delay) = @_;
 
+    if(defined $WATCHER) {
+        $config = $WATCHER->file();
+        $delay  = $WATCHER->check_interval();
+    }
+
     print "init_and_watch ($config-$delay). Resetting.\n" if DEBUG;
 
     Log::Log4perl::Logger->reset();
 
     defined ($delay) or $delay = $DEFAULT_WATCH_DELAY;  
 
-    $delay =~ /\D/ && die "illegal non-numerica value for delay: $delay";
+    $delay =~ /\D/ && die "illegal non-numerical value for delay: $delay";
 
     if (ref $config) {
-        die "Log4perl can only watch a file, not a string of configuration information";
+        die "Log4perl can only watch a file, not a string of " .
+            "configuration information";
     }elsif ($config =~ m!^(https?|ftp|wais|gopher|file):!){
         die "Log4perl can only watch a file, not a url like $config";
     }
 
-    Log::Log4perl::Logger::init_watch($delay);
+    $WATCHER = Log::Log4perl::Config::Watch->new(
+                      file           => $config,
+                      check_interval => $delay,
+               );
 
     _init($class, $config);
 }
@@ -473,7 +484,6 @@ sub config_read {
                      $res->message." ";
             }
         }else{
-            Log::Log4perl::Logger::set_file_to_watch($config);
             open FILE, "<$config" or die "Cannot open config file '$config'";
             @text = <FILE>;
             close FILE;
@@ -559,16 +569,57 @@ sub compile_if_perl {
     my($value) = @_;
 
     if($value =~ /^\s*sub\s*{/ ) {
-        unless($Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE) {
-            die "\$Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE setting " .
+        my $mask;
+        unless( Log::Log4perl::Config->allow_code() ) {
+            die "\$Log::Log4perl::Config->allow_code() setting " .
                 "prohibits Perl code in config file";
         }
-        my $cref = eval "package main; $value" or 
-            die "Can't evaluate '$value' ($@)";
-        return $cref;
+        if( defined( $mask = Log::Log4perl::Config->allowed_code_ops() ) ) {
+            return compile_in_safe_cpt($value, $mask );
+        }
+        elsif( $mask = Log::Log4perl::Config->allowed_code_ops_convenience_map(
+                             Log::Log4perl::Config->allow_code()
+                          ) ) {
+            return compile_in_safe_cpt($value, $mask );
+        }
+        elsif( Log::Log4perl::Config->allow_code() == 1 ) {
+
+            # eval without restriction
+            my $cref = eval "package main; $value" or 
+                die "Can't evaluate '$value' ($@)";
+            return $cref;
+        }
+        else {
+            die "Invalid value for \$Log::Log4perl::Config->allow_code(): '".
+                Log::Log4perl::Config->allow_code() . "'";
+        }
     }
 
     return undef;
+}
+
+###########################################
+sub compile_in_safe_cpt {
+###########################################
+    my($value, $allowed_ops) = @_;
+
+    # set up a Safe compartment
+    require Safe;
+    my $safe = Safe->new();
+    $safe->permit_only( @{ $allowed_ops } );
+ 
+    # share things with the compartment
+    for( keys %{ Log::Log4perl::Config->vars_shared_with_safe_compartment() } ) {
+        my $toshare = Log::Log4perl::Config->vars_shared_with_safe_compartment($_);
+        $safe->share_from( $_, $toshare )
+            or die "Can't share @{ $toshare } with Safe compartment";
+    }
+    
+    # evaluate with restrictions
+    my $cref = $safe->reval("package main; $value") or
+        die "Can't evaluate '$value' in Safe compartment ($@)";
+    return $cref;
+    
 }
 
 ###########################################
@@ -581,6 +632,108 @@ sub boolean_to_perlish {
     $value = 0 if $value =~ /^false$/i;
 
     return $value;
+}
+
+###########################################
+sub vars_shared_with_safe_compartment {
+###########################################
+    my($class, @args) = @_;
+
+        # Allow both for ...::Config::foo() and ...::Config->foo()
+    if(defined $class and $class ne __PACKAGE__) {
+        unshift @args, $class;
+    }
+   
+    # handle different invocation styles
+    if(@args == 1 && ref $args[0] eq 'HASH' ) {
+        # replace entire hash of vars
+        %Log::Log4perl::VARS_SHARED_WITH_SAFE_COMPARTMENT = %{$args[0]};
+    }
+    elsif( @args == 1 ) {
+        # return vars for given package
+        return $Log::Log4perl::VARS_SHARED_WITH_SAFE_COMPARTMENT{$args[0]};
+    }
+    elsif( @args == 2 ) {
+        # add/replace package/var pair
+        $Log::Log4perl::VARS_SHARED_WITH_SAFE_COMPARTMENT{$args[0]} = $args[1];
+    }
+
+    return wantarray ? %Log::Log4perl::VARS_SHARED_WITH_SAFE_COMPARTMENT
+                     : \%Log::Log4perl::VARS_SHARED_WITH_SAFE_COMPARTMENT;
+    
+}
+
+###########################################
+sub allowed_code_ops {
+###########################################
+    my($class, @args) = @_;
+
+        # Allow both for ...::Config::foo() and ...::Config->foo()
+    if(defined $class and $class ne __PACKAGE__) {
+        unshift @args, $class;
+    }
+   
+    if(@args) {
+        @Log::Log4perl::ALLOWED_CODE_OPS_IN_CONFIG_FILE = @args;
+    }
+    else {
+        # give back 'undef' instead of an empty arrayref
+        unless( defined @Log::Log4perl::ALLOWED_CODE_OPS_IN_CONFIG_FILE ) {
+            return;
+        }
+    }
+
+    return wantarray ? @Log::Log4perl::ALLOWED_CODE_OPS_IN_CONFIG_FILE
+                     : \@Log::Log4perl::ALLOWED_CODE_OPS_IN_CONFIG_FILE;
+}
+
+###########################################
+sub allowed_code_ops_convenience_map {
+###########################################
+    my($class, @args) = @_;
+
+        # Allow both for ...::Config::foo() and ...::Config->foo()
+    if(defined $class and $class ne __PACKAGE__) {
+        unshift @args, $class;
+    }
+
+    # handle different invocation styles
+    if( @args == 1 && ref $args[0] eq 'HASH' ) {
+        # replace entire map
+        %Log::Log4perl::ALLOWED_CODE_OPS = %{$args[0]};
+    }
+    elsif( @args == 1 ) {
+        # return single opcode mask
+        return $Log::Log4perl::ALLOWED_CODE_OPS{$args[0]};
+    }
+    elsif( @args == 2 ) {
+        # make sure the mask is an array ref
+        if( ref $args[1] ne 'ARRAY' ) {
+            die "invalid mask (not an array ref) for convenience name '$args[0]'";
+        }
+        # add name/mask pair
+        $Log::Log4perl::ALLOWED_CODE_OPS{$args[0]} = $args[1];
+    }
+
+    return wantarray ? %Log::Log4perl::ALLOWED_CODE_OPS
+                     : \%Log::Log4perl::ALLOWED_CODE_OPS
+}
+
+###########################################
+sub allow_code {
+###########################################
+    my($class, @args) = @_;
+
+        # Allow both for ...::Config::foo() and ...::Config->foo()
+    if(defined $class and $class ne __PACKAGE__) {
+        unshift @args, $class;
+    }
+   
+    if(@args) {
+        $Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE = $args[0];
+    }
+
+    return $Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE;
 }
 
 1;

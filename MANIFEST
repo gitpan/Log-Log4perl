@@ -20,6 +20,7 @@ lib/Log/Log4perl/Appender/TestBuffer.pm
 lib/Log/Log4perl/Config.pm
 lib/Log/Log4perl/Config/DOMConfigurator.pm
 lib/Log/Log4perl/Config/PropertyConfigurator.pm
+lib/Log/Log4perl/Config/Watch.pm
 lib/Log/Log4perl/DateFormat.pm
 lib/Log/Log4perl/FAQ.pm
 lib/Log/Log4perl/Filter.pm
@@ -83,6 +84,7 @@ t/037JWin32Event.t
 t/038XML-DOM1.t
 t/039XML-DOM2.t
 t/040Filter.t
+t/041SafeEval.t
 t/compare.pl
 t/deeper1.expected
 t/deeper6.expected
