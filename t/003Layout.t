@@ -10,7 +10,7 @@ use strict;
 # change 'tests => 1' to 'tests => last_test_to_print';
 #########################
 use Test;
-BEGIN { plan tests => 9 };
+BEGIN { plan tests => 10 };
 
 use Log::Log4perl;
 use Log::Log4perl::Layout;
@@ -26,7 +26,7 @@ ok(1); # If we made it this far, we're ok.
 my $logger = Log::Log4perl->get_logger("abc.def.ghi");
 $logger->add_appender($app);
 my $layout = Log::Log4perl::Layout::PatternLayout->new(
-    "bugo %% %c{2} %-17F{ba} %L hugo");
+    "bugo %% %c{2} %-17F{2} %L hugo");
 $app->layout($layout);
 $logger->debug("That's the message");
 
@@ -108,3 +108,13 @@ $app->layout($layout);
 $logger->debug("That's the message");
 
 ok($app->buffer(), 't/003Layout.t-108 That\'s the message'); 
+
+############################################################
+# Don't append a newline if the message already contains one
+############################################################
+$app->buffer("");
+$layout = Log::Log4perl::Layout::PatternLayout->new("%m%n");
+$app->layout($layout);
+$logger->debug("That's the message\n");
+
+ok($app->buffer(), "That\'s the message\n");

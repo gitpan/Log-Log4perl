@@ -7,11 +7,12 @@ use strict;
 use warnings;
 
 use Log::Log4perl::Logger;
+use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Dispatch::Screen;
 use Log::Log4perl::Appender;
 
-our $VERSION = '0.20';
+our $VERSION = '0.21';
 
 ##################################################
 sub import {
@@ -22,6 +23,12 @@ sub import {
 
     my(%tags) = map { $_ => 1 } @_;
 
+        # Lazy man's logger
+    if(exists $tags{':easy'}) {
+        $tags{':levels'} = 1;
+        $tags{'get_logger'} = 1;
+    }
+
     if(exists $tags{get_logger}) {
         # Export get_logger into the calling module's 
         my $caller_pkg = caller();
@@ -29,6 +36,27 @@ sub import {
         *{"$caller_pkg\::get_logger"} = *get_logger;
 
         delete $tags{get_logger};
+    }
+
+    if(exists $tags{':levels'}) {
+        # Export log levels ($DEBUG, $INFO etc.) from Log4perl::Level
+        my $caller_pkg = caller();
+
+        for my $key (keys %Log::Log4perl::Level::PRIORITY) {
+            my $name  = "$caller_pkg\::$key";
+               # Need to split this up in two lines, or CVS will
+               # mess it up.
+            my $value = $
+                        Log::Log4perl::Level::PRIORITY{$key};
+            *{"$name"} = \$value;
+        }
+
+        delete $tags{':levels'};
+    }
+
+        # Lazy man's logger
+    if(exists $tags{':easy'}) {
+        delete $tags{':easy'};
     }
 
     if(keys %tags) {
@@ -81,15 +109,24 @@ sub init_and_watch {
 
 
 ##################################################
-sub default_init { # Initialize the root logger with a screen appender
+sub easy_init { # Initialize the root logger with a screen appender
 ##################################################
-    my($class, @args) = @_;
+    my($class, $level) = @_;
+
+    # Did somebody call us with Log::Log4perl::easy_init()?
+    if(!defined $level and $class =~ /^\d+$/) {
+        $level = $class;
+    }
+
+    $level = $DEBUG unless defined $level;
 
     my $app = Log::Log4perl::Appender->new("Log::Dispatch::Screen");
-    my $layout = Log::Log4perl::Layout::PatternLayout->new("%d> %F %L %m %n");
+    my $layout = Log::Log4perl::Layout::PatternLayout->new(
+                     "%d %p> %F{1}:%L %M - %m%n");
     $app->layout($layout);
 
     my $logger = Log::Log4perl->get_logger("");
+    $logger->level($level);
     $logger->add_appender($app);
 }
 
@@ -122,6 +159,36 @@ __END__
 =head1 NAME
 
 Log::Log4perl - Log4j implementation for Perl
+
+=head1 SYNOPSIS
+ 
+    Log::Log4perl::init('/etc/log4perl.conf');
+    
+    --or--
+    
+    Log::Log4perl::init_and_watch('/etc/log4perl.conf',10);
+    
+    --then--
+    
+    
+    $logger = Log::Log4perl->get_logger('house.bedrm.desk.topdrwr');
+    
+    $logger->debug('this is a debug message');
+    $logger->info('this is an info message');
+    $logger->warn('etc');
+    $logger->error('..');
+    $logger->fatal('..');
+    
+    #####/etc/log4perl.conf###################
+    log4j.category.house              = WARN,  FileAppndr1
+    log4j.category.house.bedroom.desk = DEBUG,  FileAppndr1
+    
+    log4j.appender.FileAppndr1          = Log::Dispatch::File
+    log4j.appender.FileAppndr1.filename = desk.log 
+    log4j.appender.FileAppndr1.layout   = \
+                            Log::Log4perl::Layout::SimpleLayout
+    ###########################################
+       
 
 =head1 DESCRIPTION
 
@@ -742,6 +809,16 @@ In this case, use this instead:
         }
     }
 
+If you're afraid that the way you're generating the parameters to the
+of the logging function is fairly expensive, use closures:
+
+        # Passed as subroutine ref
+    use Data::Dumper;
+    $Logger->debug(sub { Dumper($data) } );
+
+This won't unravel C<$data> via Dumper() unless it's actually needed
+because it's logged.
+
 =head1 Categories
 
 C<Log::Log4perl> uses I<categories> to determine if a log statement in
@@ -879,6 +956,10 @@ http://jakarta.apache.org/log4j/docs/manual.html
 
 Vipan Singla, "Don't Use System.out.println! Use Log4j.",
 http://www.vipan.com/htdocs/log4jhelp.html
+
+=item [3]
+
+The Log::Log4perl project home page: http://log4perl.sourceforge.net
 
 =back
 

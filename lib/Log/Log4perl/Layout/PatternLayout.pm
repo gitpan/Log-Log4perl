@@ -18,7 +18,6 @@ no strict qw(refs);
 
 our $PROGRAM_START_TIME = [gettimeofday()];
 
-
 ##################################################
 sub new {
 ##################################################
@@ -127,7 +126,12 @@ sub render {
     }
 
     $info{c} = $category;
-    $info{n} = "\n";
+        # %n means \n only if $message doesn't have a trailing newline already.
+    if($message =~ /\n\Z/) {
+        $info{n} = "";
+    } else {
+        $info{n} = "\n";
+    }
     $info{p} = $priority;
     $info{r} = int((tv_interval ( $PROGRAM_START_TIME ))*1000);
 
@@ -170,6 +174,13 @@ sub curly_action {
         $data = shrink_category($data, $curlies);
     } elsif($ops eq "C") {
         $data = shrink_category($data, $curlies);
+    } elsif($ops eq "F") {
+        my @parts = split m#/#, $data;
+            # Limit it to max curlies entries
+        if(@parts > $curlies) {
+            splice @parts, 0, @parts - $curlies;
+        }
+        $data = join '/', @parts;
     }
 
     return $data;

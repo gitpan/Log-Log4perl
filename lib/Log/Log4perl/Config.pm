@@ -11,6 +11,7 @@ use Log::Log4perl::Level;
 use Log::Dispatch;
 use Log::Dispatch::File;
 use Log::Log4perl::JavaMap;
+use constant DEBUG => 0;
 
 # How to map lib4j levels to Log::Dispatch levels
 my @LEVEL_MAP_A = qw(
@@ -26,10 +27,43 @@ my @LEVEL_MAP_A = qw(
 
 our $DEFAULT_WATCH_DELAY = 60; #seconds
 
-##################################################
+###########################################
 sub init {
+###########################################
+    Log::Log4perl::Logger->reset();
+
+    return _init(@_);
+}
+
+###########################################
+sub init_and_watch {
+###########################################
+    my ($class, $config, $delay) = @_;
+
+    print "init_and_watch ($config-$delay). Resetting.\n" if DEBUG;
+
+    Log::Log4perl::Logger->reset();
+
+    defined ($delay) or $delay = $DEFAULT_WATCH_DELAY;  
+
+    $delay =~ /\D/ && die "illegal non-numerica value for delay: $delay";
+
+    if (ref $config) {
+        die "can only watch a file, not a string of configuration information";
+    }
+
+    Log::Log4perl::Logger::init_watch($delay);
+
+    _init($class, $config);
+}
+
+##################################################
+sub _init {
 ##################################################
     my($class, $config) = @_;
+
+    print "Calling _init\n" if DEBUG;
+    $Log::Log4perl::Logger::INITIALIZED = 1;
 
     #keep track so we don't create the same one twice
     my %appenders_created = ();
@@ -128,24 +162,6 @@ sub init {
 
 
 ###########################################
-sub init_and_watch {
-###########################################
-    my ($class, $config, $delay) = @_;
-
-    defined ($delay) or $delay = $DEFAULT_WATCH_DELAY;  
-
-    $delay =~ /\D/ && die "illegal non-numerica value for delay: $delay";
-
-    if (ref $config) {
-        die "can only watch a file, not a string of configuration information";
-    }
-
-    Log::Log4perl::Logger::init_watch($delay);
-
-    &init($class, $config);
-}
-
-###########################################
 sub add_layout_by_name {
 ###########################################
     my($data, $appender, $appender_name) = @_;
@@ -212,9 +228,10 @@ sub config_read {
         close FILE;
     }
 
+    print "Reading $config: [@text]\n" if DEBUG;
+
     my $data = {};
 
-    #for(@text) {
     while (@text) {
         $_ = shift @text;
         s/#.*//;
@@ -231,15 +248,12 @@ sub config_read {
         if(my($key, $val) = /(\S+?)\s*=\s*(.*)/) {
             $val =~ s/\s+$//;
             $key = unlog4j($key);
-            #$key =~ s#^org\.apache\.##;
-            #$key =~ s#^log4j\.##;
             my $ptr = $data;
             for my $part (split /\.|::/, $key) {
                 $ptr->{$part} = {} unless exists $ptr->{$part};
                 $ptr = $ptr->{$part};
             }
             $ptr->{value} = $val;
-            #print "$key: $val\n";
         }
     }
 
@@ -253,6 +267,7 @@ sub unlog4j {
 
     $string =~ s#^org\.apache\.##;
     $string =~ s#^log4j\.##;
+    $string =~ s#^log4perl\.##;
 
     $string =~ s#\.#::#g;
 
@@ -293,5 +308,3 @@ sub leaf_paths {
 }
 
 1;
-
-
