@@ -17,6 +17,7 @@ use Log::Log4perl::Layout;
 use Log::Log4perl::Level;
 use Log::Dispatch;
 use Log::Log4perl::TestBuffer;
+use File::Spec;
 
 my $app = Log::Log4perl::Appender->new(
     "Log::Log4perl::TestBuffer");
@@ -30,7 +31,9 @@ my $layout = Log::Log4perl::Layout::PatternLayout->new(
 $app->layout($layout);
 $logger->debug("That's the message");
 
-ok($app->buffer(), "bugo % def.ghi t/003Layout.t     31 hugo"); 
+ok($app->buffer(), "bugo % def.ghi " . 
+                   File::Spec->catfile(qw(t 003Layout.t)) .
+                   "     32 hugo"); 
 
 ############################################################
 # Log the message
@@ -107,7 +110,8 @@ $layout = Log::Log4perl::Layout::PatternLayout->new("%F-%L %m");
 $app->layout($layout);
 $logger->debug("That's the message");
 
-ok($app->buffer(), 't/003Layout.t-108 That\'s the message'); 
+ok($app->buffer(), File::Spec->catfile(qw(t 003Layout.t)) .
+                   "-111 That's the message"); 
 
 ############################################################
 # Don't append a newline if the message already contains one

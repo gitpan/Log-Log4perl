@@ -12,7 +12,7 @@ use Log::Log4perl::Config;
 use Log::Dispatch::Screen;
 use Log::Log4perl::Appender;
 
-our $VERSION = '0.23';
+our $VERSION = '0.24';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -195,7 +195,7 @@ Log::Log4perl - Log4j implementation for Perl
        
 =head1 ABSTRACT
 
-    Log::Log4perl provides a powerful logging API to your application,
+    Log::Log4perl provides a powerful logging API to your application
 
 =head1 DESCRIPTION
 
@@ -205,11 +205,11 @@ of your system from the outside. It implements the widely popular
 
 B<For a detailed tutorial on Log::Log4perl usage, please read [1]>.
 
-A WORD OF CAUTION: THIS LIBRARY IS ALPHA SOFTWARE AND STILL 
-UNDER CONSTRUCTION -- ON
-http://log4perl.sourceforge.net YOU'LL GET THE LATEST SCOOP.
-THE API HAS REACHED A MATURE STATE, WE WILL NOT CHANGE IT UNLESS FOR
-A GOOD REASON.
+A WORD OF CAUTION: Log::Log4perl IS STILL UNDER DEVELOPMENT. WE WILL
+ALWAYS MAKE SURE THE TEST SUITE (approx. 300 CASES) WILL PASS, BUT THERE 
+MIGHT STILL BE BUGS. PLEASE CHECK http://log4perl.sourceforge.net REGULARILY
+FOR THE LATEST RELEASE. THE API HAS REACHED A MATURE STATE, WE WILL 
+NOT CHANGE IT UNLESS FOR A GOOD REASON. 
 
 Logging beats a debugger when you want to know what's going on 
 in your code during runtime. However, traditional logging packages
@@ -731,6 +731,8 @@ C<R>, a C<org.apache.log4j.RollingFileAppender>
 C<Log::Dispatch::File> with the C<File> attribute specifying the
 log file.
 
+See L<Log::Log4perl::Config> for more examples and syntax explanations.
+
 =head2 Log Layouts
 
 If the logging engine passes a message to an appender, because it thinks
@@ -1072,6 +1074,32 @@ config file, but note that your config file probably won't be
 portable to another log4perl or log4j environment unless you've
 made the appropriate mods there too.
 
+=head2 Easy Mode
+
+For teaching purposes (especially for [1]), I've put C<:easy> mode into 
+C<Log::Log4perl>, which just initializes a single root logger with a 
+defined priority and a screen appender including some nice standard layout:
+
+    ### Initialization Section
+    use Log::Log4perl qw(:easy);
+    Log::Log4perl->easy_init($ERROR);  # Set priority of root logger to ERROR
+
+    ### Application Section
+    my $logger = get_logger();
+    $logger->fatal("This will get logged.");
+    $logger->debug("This won't.");
+
+This will dump something like
+
+    2002/08/04 11:43:09 ERROR> script.pl:16 main::function - This will get logged.
+
+to the screen. While this has been proven to work well familiarizing people
+with C<Log::Logperl> slowly, effectively avoiding to clobber them over the head with a 
+plethora of different knobs to fiddle with (categories, appenders, levels, 
+layout), the overall mission of C<Log::Log4perl> is to let people use
+categories right from the start to get used to the concept. So, let's keep
+this one fairly hidden in the man page (congrats on reading this far :).
+
 =head1 How about Log::Dispatch::Config?
 
 Tatsuhiko Miyagawa's C<Log::Dispatch::Config> is a very clever 
@@ -1083,7 +1111,7 @@ C<Log::Log4perl> can but C<Log::Dispatch::Config> can't are:
 
 =item *
 
-You can't assing categories to loggers. For small systems that's fine,
+You can't assign categories to loggers. For small systems that's fine,
 but if you can't turn off and on detailed logging in only a tiny
 subsystem of your environment, you're missing out on a majorly
 useful log4j feature.
@@ -1129,13 +1157,14 @@ then C<Log::Log4perl> will compensate for the difference.
 A simple example to cut-and-paste and get started:
 
     use Log::Log4perl qw(get_logger);
-
+    
     my $conf = q(
-    log4perl.category.Bar.Twix      = WARN, Screen
-    log4perl.appender.Screen        = Log::Dispatch::Screen
-    log4perl.appender.Screen.layout = \
+    log4perl.category.Bar.Twix         = WARN, Logfile
+    log4perl.appender.Logfile          = Log::Dispatch::File
+    log4perl.appender.Logfile.filename = test.log
+    log4perl.appender.Logfile.layout = \
         Log::Log4perl::Layout::PatternLayout
-    log4perl.appender.Screen.layout.ConversionPattern = %d %m %n
+    log4perl.appender.Logfile.layout.ConversionPattern = %d %F{1} %L> %m %n
     );
     
     Log::Log4perl::init(\$conf);
@@ -1143,16 +1172,26 @@ A simple example to cut-and-paste and get started:
     my $logger = get_logger("Bar::Twix");
     $logger->error("Blah");
 
+This will log something like
+
+    2002/09/19 23:48:15 t1 25> Blah 
+
+to the log file C<test.log>, which Log4perl will append to or 
+create it if it doesn't exist already.
+
 =head1 INSTALLATION
 
-C<Log::Log4perl> needs C<Log::Dispatch> (2.00 or better) from CPAN.
+C<Log::Log4perl> needs C<Log::Dispatch> (2.00 or better) from CPAN,
+which itself depends on C<Attribute-Handlers> and
+C<Params-Validate>. 
+Everything's automatically fetched from CPAN if you're using the CPAN 
+shell (CPAN.pm), because they're listed as dependencies.
+Also, C<Test::Simple>, C<Test::Harness> and C<File::Spec> are needed,
+but they already come with fairly recent versions of perl.
+
 C<Time::HiRes> (1.20 or better) is required only if you need the
 fine-grained time stamps of the C<%r> parameter in
 C<Log::Log4perl::Layout::PatternLayout>.
-
-C<Log::Dispatch> is automatically fetched from CPAN
-if you're using the CPAN shell (CPAN.pm), because it's listed as 
-requirement in Makefile.PL.
 
 Manual installation works as usual with
 
@@ -1166,7 +1205,7 @@ Manual installation works as usual with
 C<Log::Log4perl> is under heavy development. The latest CVS tarball
 can be obtained from SourceForge, check C<http://log4perl.sourceforge.net>
 for details. Bug reports and feedback are always welcome, just email
-to our mailing list shown in L<CONTACT>.
+to our mailing list shown in the AUTHORS section.
 
 =head1 REFERENCES
 
@@ -1194,20 +1233,27 @@ The Log::Log4perl project home page: http://log4perl.sourceforge.net
 
 =back
 
-=head1 CONTACT
+=head1 SEE ALSO
+
+L<Log::Log4perl::Config|Log::Log4perl::Config>,
+L<Log::Log4perl::Appender|Log::Log4perl::Appender>,
+L<Log::Log4perl::Layout::PatternLayout|Log::Log4perl::Layout::PatternLayout>,
+L<Log::Log4perl::Layout::SimpleLayout|Log::Log4perl::Layout::SimpleLayout>,
+L<Log::Log4perl::Level|Log::Log4perl::Level>,
+L<Log::Log4perl::JavaMap|Log::Log4perl::JavaMap>
+
+=head1 AUTHORS
 
 Please send bug reports or requests for enhancements to the authors via 
 our log4perl development mailing list: 
 
-log4perl-devel@lists.sourceforge.net
+    log4perl-devel@lists.sourceforge.net
 
-=head1 AUTHORS
-
+    Log::Log4perl Authors: 
     Mike Schilli <m@perlmeister.com>
     Kevin Goess <cpan@goess.org>
 
-    Contributors:
-
+    Log::Log4perl Contributors:
     Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
     Erik Selberg <erik@selberg.com>
 

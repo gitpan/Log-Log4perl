@@ -2,6 +2,21 @@
 Revision history for Log::Log4perl
 ##################################################
 
+0.24 09/26/2002
+    * (kg) Fix for init_and_watch and test cases
+    * (ms) Added documentation for Log::Log4perl::Config
+    * (ms) Added log4perl.additivity.loggerName conf file syntax
+    * (ms) Assume Log::Log4perl::Layout prefix of 'relative'
+           layout class names in conf file (say 'SimpleLayout'
+           instead of 'Log::Log4perl::Layout::SimpleLayout').
+    * (ms) accidently appending a ';' at the end of an appender
+      class in a conf file now spits out a reasonable error message
+    * (ms) added a by_name() method to TestBuffer to retrieve an
+           instance of the TestBuffer population by name instead of
+           relying on the order of creation via POPULATION[x] 
+           (for testing only).
+    * (kg) Win32 compatibility fixes
+
 0.23 09/14/2002
     * Both Log4perl/log4perl is now accepted in conf file
     * Added documentation to Log::Log4perl::Appender
@@ -238,6 +253,8 @@ TODO Kevin:
 
 TODO Mike:
 ##################################################
+    * Turning on DEBUG in Logger.pm results in broken test cases and
+      warnings
     * %20.30d
     * Kevin says:
       >WARN in the config file
@@ -252,8 +269,6 @@ TODO Mike:
       and the config file sets the level to WARN?
     * Documentation of Log::Log4perl::Logger and Log::Log4perl::Config
     * Layout.pm: 't', 'x', 'X'
-    * Additivity flag -- set/get as API and in cfg file
-      (log4j.additivity.loggername = true|false)
     * README tests (Pod::Tests or something)
     * Thread safety
     * Just had a wild idea: Could we possibly utilize the compiler
