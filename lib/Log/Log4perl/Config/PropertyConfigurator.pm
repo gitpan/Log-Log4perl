@@ -6,12 +6,15 @@ use strict;
 *eval_if_perl = \&Log::Log4perl::Config::eval_if_perl;
 *unlog4j      = \&Log::Log4perl::Config::unlog4j;
 
+use constant _INTERNAL_DEBUG => 0;
 
-
+################################################
 sub parse {
+################################################
     my $text = shift;
 
     my $data = {};
+    my %var_subst = ();
 
     while (@$text) {
         $_ = shift @$text;
@@ -26,11 +29,22 @@ sub parse {
             $_ = $prev. $next;
             chomp;
         }
+
         if(my($key, $val) = /(\S+?)\s*=\s*(.*)/) {
+
             $val =~ s/\s+$//;
+
+                # Everything could potentially be a variable assignment
+            $var_subst{$key} = $val;
+
+                # Substitute any variables
+            $val =~ s/\${(.*?)}/
+                      Log::Log4perl::Config::var_subst($1, \%var_subst)/gex;
+
             $val = eval_if_perl($val) if 
                 $key !~ /\.(cspec\.)|warp_message|filter/;
             $key = unlog4j($key);
+
             my $how_deep = 0;
             my $ptr = $data;
             for my $part (split /\.|::/, $key) {
@@ -79,6 +93,13 @@ This is an internal class.
 Initializes log4perl from a properties file, stuff like
 
     log4j.category.a.b.c.d = WARN, A1
+    log4j.category.a.b = INFO, A1
+
+It also understands variable substitution, the following
+configuration is equivalent to the previous one:
+
+    settings = WARN, A1
+    log4j.category.a.b.c.d = ${settings}
     log4j.category.a.b = INFO, A1
 
 =head1 SEE ALSO

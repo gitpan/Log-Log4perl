@@ -857,17 +857,17 @@ configuration file C<test.conf> looks like this:
 
     log4perl.appender.ColorApp.layout = PatternLayout
     log4perl.appender.ColorApp.layout.ConversionPattern=%d %m %n
- 
+
 This will cause Log::Log4perl on C<init()> to look for a class
 ColorScreenAppender and call its constructor new(). Let's add
 new() to ColorScreenAppender.pm:
 
     sub new {
         my($class, %options) = @_;
-    
+
         my $self = { %options };
         bless $self, $class;
-    
+
         return $self;
     }
 
@@ -898,7 +898,7 @@ Term::ANSIColor module to colorize the output:
 
     sub log {
         my($self, %params) = @_;
-    
+
         print colored($params{message},
                       $self->{color});
     }
@@ -1019,16 +1019,16 @@ Let's define a new appender like
 
     sub new {
         my($class, %options) = @_;
-    
+
         my $self = { maxcount => 5,
                      %options
                    };
-    
+
         bless $self, $class;
-    
+
         $self->{last_message}        = "";
         $self->{last_message_count}  = 0;
-    
+
         return $self;
     }
 
@@ -1037,7 +1037,7 @@ C<last_message_count>, storing the content of the last message sent
 and a counter of how many times this has happened. Also, it features
 a configuration parameter C<maxcount> which defaults to 5 in the
 snippet above but can be set in the Log4perl configuration file like this:
- 
+
     log4perl.logger = INFO, A
     log4perl.appender.A=TallyAppender
     log4perl.appender.A.maxcount = 3
@@ -1267,18 +1267,18 @@ it should be written out or suppressed, based on the message content or other
 parameters:
 
     use Log::Log4perl qw(:easy);
-    
+
     Log::Log4perl::init( \ <<'EOT' );
         log4perl.logger             = INFO, A1
         log4perl.appender.A1        = Log::Log4perl::Appender::Screen
         log4perl.appender.A1.layout = \
             Log::Log4perl::Layout::PatternLayout
         log4perl.appender.A1.layout.ConversionPattern = %m%n
-    
+
         log4perl.filter.M1 = Log::Log4perl::Filter::StringMatch
         log4perl.filter.M1.StringToMatch = Begin
         log4perl.filter.M1.AcceptOnMatch = false
-    
+
         log4perl.appender.A1.Filter = M1
 EOT
 
@@ -1312,7 +1312,7 @@ mode, like in
     sub foo {
         DEBUG("In foo");
     }
-    
+
     1;
 
 and the calling program doesn't initialize Log::Log4perl at all (e.g. because
@@ -1358,6 +1358,148 @@ already initialized Log::Log4perl, it can do so by calling
 
 which will return a true value in case Log::Log4perl has been initialized 
 and a false value if not.
+
+=head2 How can I synchronize access to an appender?
+
+If you're using the same instance of an appender in multiple processes, 
+each passing on messages to it in parallel, you might end up with 
+overlapping log entries.
+
+Imagine a file appender that you create in the main program, and which
+will then be shared between the parent and a forked child process. When
+it comes to logging, Log::Log4perl won't synchronize access to it.
+Depending on your operating system's flush mechanism, buffer size and the size
+of your messages, there's a small chance of an overlap.
+
+A guaranteed way of having messages separated is putting a
+Log::Log4perl::Appender::Synchronized composite appender in 
+between Log::Log4perl and the real appender. It will make sure to
+let messages pass through this virtual gate one by one only. 
+
+Here's a sample configuration to synchronize access to a file appender:
+
+    log4perl.category.Bar.Twix          = WARN, Syncer
+
+    log4perl.appender.Logfile           = Log::Log4perl::Appender::File
+    log4perl.appender.Logfile.autoflush = 1
+    log4perl.appender.Logfile.filename  = test.log
+    log4perl.appender.Logfile.layout    = SimpleLayout
+
+    log4perl.appender.Syncer            = Log::Log4perl::Appender::Synchronized
+    log4perl.appender.Syncer.appender   = Logfile
+
+C<Log::Log4perl::Appender::Synchronized> uses 
+the C<IPC::Shareable> module and its semaphores, which will slow down writing
+the log messages, but ensures sequential access featuring atomic checks.
+Check L<Log::Log4perl::Appender::Synchronized> for details.
+
+=head2 Can I use Log::Log4perl with log4j's Chainsaw?
+
+Yes, Log::Log4perl can be configured to sent its events to log4j's 
+graphical log UI I<Chainsaw>.
+
+=for html
+<p>
+<TABLE><TR><TD>
+<A HREF="/images/chainsaw2.jpg"><IMG SRC="/images/chainsaw2s.jpg"></A>
+<TR><TD>
+<I>Figure 1: Chainsaw receives Log::Log4perl events</I>
+</TABLE>
+<p>
+
+=for text
+Figure1: Chainsaw receives Log::Log4perl events
+
+Here's how it works:
+
+=over 4
+
+=item *
+
+Get Guido Carls' E<lt>gcarls@cpan.orgE<gt> Log::Log4perl extension
+C<Log::Log4perl::Layout::XMLLayout> from CPAN and install it:
+
+    perl -MCPAN -eshell
+    cpan> install Log::Log4perl::Layout::XMLLayout
+
+=item *
+
+Install and start Chainsaw, which is part of the C<log4j> distribution now
+(see http://jakarta.apache.org/log4j ). Create a configuration file like
+
+  <log4j:configuration debug="true">
+    <plugin name="XMLSocketReceiver" 
+            class="org.apache.log4j.net.XMLSocketReceiver">
+      <param name="decoder" value="org.apache.log4j.xml.XMLDecoder"/> 
+      <param name="Port" value="4445"/> 
+    </plugin>
+    <root> <level value="debug"/> </root> 
+  </log4j:configuration>
+
+and name it e.g. C<config.xml>. Then start Chainsaw like
+
+  java -Dlog4j.debug=true -Dlog4j.configuration=config.xml \
+    -classpath ".:log4j-1.3alpha.jar:log4j-chainsaw-1.3alpha.jar" \
+    org.apache.log4j.chainsaw.LogUI
+
+and watch the GUI coming up.
+
+=item *
+
+Configure Log::Log4perl to use a socket appender with an XMLLayout, pointing
+to the host/port where Chainsaw (as configured above) is waiting with its
+XMLSocketReceiver:
+
+  use Log::Log4perl qw(get_logger);
+  use Log::Log4perl::Layout::XMLLayout;
+
+  my $conf = q(
+    log4perl.category.Bar.Twix          = WARN, Appender
+    log4perl.appender.Appender          = Log::Log4perl::Appender::Socket
+    log4perl.appender.Appender.PeerAddr = localhost
+    log4perl.appender.Appender.PeerPort = 4445
+    log4perl.appender.Appender.layout   = Log::Log4perl::Layout::XMLLayout
+  );
+
+  Log::Log4perl::init(\$conf);
+
+    # Nasty hack to suppress encoding header
+  my $app = Log::Log4perl::appenders->{"Appender"};
+  $app->layout()->{enc_set} = 1;
+
+  my $logger = get_logger("Bar");
+  $logger->error("One");
+
+The nasty hack shown in the code snippet above is currently (October 2003) 
+necessary, because Chainsaw expects XML messages to arrive in a format like
+
+  <log4j:event logger="Bar.Twix"
+               timestamp="1066794904310"
+               level="ERROR"
+               thread="10567">
+    <log4j:message><![CDATA[Two]]></log4j:message>
+    <log4j:NDC><![CDATA[undef]]></log4j:NDC>
+    <log4j:locationInfo class="main"
+      method="main"
+      file="./t"
+      line="32">
+    </log4j:locationInfo>
+  </log4j:event>
+
+without a preceding 
+
+  <?xml version = "1.0" encoding = "iso8859-1"?>
+
+which Log::Log4perl::Layout::XMLLayout applies to the first event sent
+over the socket.
+
+=back
+
+See figure 1 for a screenshot of Chainsaw in action, receiving events from
+the Perl script shown above.
+
+Many thanks to Chainsaw's
+Scott Deboy <sdeboy@comotivsystems.com> for his support!
 
 =cut
 

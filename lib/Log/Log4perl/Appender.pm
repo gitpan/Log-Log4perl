@@ -75,10 +75,11 @@ sub new {
     );
 
     my $self = {
-                 appender => $appender,
-                 name     => $params{name},
-                 layout   => undef,
-                 level    => $ALL,
+                 appender  => $appender,
+                 name      => $params{name},
+                 layout    => undef,
+                 level     => $ALL,
+                 composite => 0,
                };
 
         #whether to collapse arrays, etc.
@@ -92,6 +93,15 @@ sub new {
     bless $self, $class;
 
     return $self;
+}
+
+##################################################
+sub composite { # Set/Get the composite flag
+##################################################
+    my ($self, $flag) = @_;
+
+    $self->{composite} = $flag if defined $flag;
+    return $self->{composite};
 }
 
 ##################################################
@@ -141,8 +151,9 @@ sub log {
         }
     }
 
-    $self->{layout} || $self->layout();  #set to default if not already
-                                         #can this be moved?
+        # No more default layout (composite appenders)
+    #$self->{layout} || $self->layout();  #set to default if not already
+                                          #can this be moved?
 
     #doing the rendering in here 'cause this is 
     #where we keep the layout
@@ -174,7 +185,7 @@ sub log {
                                             $category,
                                             $level,
                                             3 + $Log::Log4perl::caller_depth,
-                                            );
+                                            ) if $self->layout();
 
     $self->{appender}->log(%$p, 
                             #these are used by our Appender::DBI

@@ -98,6 +98,10 @@ sub _init {
     #keep track so we don't create the same one twice
     my %appenders_created = ();
 
+    #some appenders need to run certain subroutines right at the
+    #end of the configuration phase, when all settings are in place.
+    my @post_config_subs  = ();
+
     # This logic is probably suited to win an obfuscated programming
     # contest. It desperately needs to be rewritten.
     # Basically, it works like this:
@@ -249,70 +253,11 @@ sub _init {
 
         for my $appname (@appnames) {
 
-            my $appenderclass = get_appender_by_name($data, $appname, 
-                                                     \%appenders_created);
-            my $appender;
+            my $appender = create_appender_instance(
+                $data, $appname, \%appenders_created, \@post_config_subs);
 
-            print "appenderclass=$appenderclass\n" if _INTERNAL_DEBUG;
-
-            if (ref $appenderclass) {
-
-                $appender = $appenderclass;
-
-            }else{
-
-                die "ERROR: you didn't tell me how to " .
-                    "implement your appender '$appname'"
-                        unless $appenderclass;
-
-                if (Log::Log4perl::JavaMap::translate($appenderclass)){
-                    # It's Java. Try to map
-                    print "Trying to map Java $appname\n" if _INTERNAL_DEBUG;
-                    $appender = Log::Log4perl::JavaMap::get($appname, 
-                                                $data->{appender}->{$appname});
-
-                }else{
-                    # It's Perl
-                    my @params = grep { $_ ne "layout" and
-                                        $_ ne "value"
-                                      } keys %{$data->{appender}->{$appname}};
-
-                    my %param = ();
-                    foreach my $pname (@params){
-                        #this could be simple value like 
-                        #{appender}{myAppender}{file}{value} => 'log.txt'
-                        #or a structure like
-                        #{appender}{myAppender}{login} => 
-                        #                         { name => {value => 'bob'},
-                        #                           pwd  => {value => 'xxx'},
-                        #                         }
-                        #in the latter case we send a hashref to the appender
-                        if (exists $data->{appender}{$appname}
-                                          {$pname}{value}      ) {
-                            $param{$pname} = $data->{appender}{$appname}
-                                                    {$pname}{value};
-                        }else{
-                            $param{$pname} = {map {$_ => $data->{appender}
-                                                                {$appname}
-                                                                {$pname}
-                                                                {$_}
-                                                                {value}} 
-                                             keys %{$data->{appender}
-                                                           {$appname}
-                                                           {$pname}}
-                                             };
-                        }
-
-                    }
-
-                    $appender = Log::Log4perl::Appender->new(
-                        $appenderclass, 
-                        name => $appname,
-                        %param,
-                    ); 
-                }
-            }
-            add_layout_by_name($data, $appender, $appname);
+            add_layout_by_name($data, $appender, $appname) unless
+                $appender->composite();
 
                 # Check for appender thresholds
             my $threshold = 
@@ -347,10 +292,115 @@ sub _init {
         }
     }
 
+    #run post_config subs
+    for(@post_config_subs) {
+        $_->();
+    }
+
     #now we're done, set up all the output methods (e.g. ->debug('...'))
     Log::Log4perl::Logger::reset_all_output_methods();
 }
 
+##################################################
+sub create_appender_instance {
+##################################################
+    my($data, $appname, $appenders_created, $post_config_subs) = @_;
+
+    my $appenderclass = get_appender_by_name(
+            $data, $appname, $appenders_created);
+
+    print "appenderclass=$appenderclass\n" if _INTERNAL_DEBUG;
+
+    my $appender;
+
+    if (ref $appenderclass) {
+        $appender = $appenderclass;
+    } else {
+        die "ERROR: you didn't tell me how to " .
+            "implement your appender '$appname'"
+                unless $appenderclass;
+
+        if (Log::Log4perl::JavaMap::translate($appenderclass)){
+            # It's Java. Try to map
+            print "Trying to map Java $appname\n" if _INTERNAL_DEBUG;
+            $appender = Log::Log4perl::JavaMap::get($appname, 
+                                        $data->{appender}->{$appname});
+
+        }else{
+            # It's Perl
+            my @params = grep { $_ ne "layout" and
+                                $_ ne "value"
+                              } keys %{$data->{appender}->{$appname}};
+    
+            my %param = ();
+            foreach my $pname (@params){
+                #this could be simple value like 
+                #{appender}{myAppender}{file}{value} => 'log.txt'
+                #or a structure like
+                #{appender}{myAppender}{login} => 
+                #                         { name => {value => 'bob'},
+                #                           pwd  => {value => 'xxx'},
+                #                         }
+                #in the latter case we send a hashref to the appender
+                if (exists $data->{appender}{$appname}
+                                  {$pname}{value}      ) {
+                    $param{$pname} = $data->{appender}{$appname}
+                                            {$pname}{value};
+                }else{
+                    $param{$pname} = {map {$_ => $data->{appender}
+                                                        {$appname}
+                                                        {$pname}
+                                                        {$_}
+                                                        {value}} 
+                                     keys %{$data->{appender}
+                                                   {$appname}
+                                                   {$pname}}
+                                     };
+                }
+    
+            }
+
+            my $depends_on = [];
+    
+            $appender = Log::Log4perl::Appender->new(
+                $appenderclass, 
+                name                 => $appname,
+                l4p_post_config_subs => $post_config_subs,
+                l4p_depends_on       => $depends_on,
+                %param,
+            ); 
+    
+            for(@$depends_on) {
+                # If this appender indicates that it needs other appenders
+                # to exist (e.g. because it's a composite appender that
+                # relays messages on to its appender-refs) then we're 
+                # creating their instances here. Reason for this is that 
+                # these appenders are not attached to any logger and are
+                # therefore missed by the config parser which goes through
+                # the defined loggers and just creates *their* attached
+                # appenders.
+                $appender->composite(1);
+                next if exists $appenders_created->{$appname};
+                my $app = create_appender_instance($data, $_, 
+                             $appenders_created,
+                             $post_config_subs);
+                # If the appender appended a subroutine to $post_config_subs
+                # (a reference to an array of subroutines)
+                # here, the configuration parser will later execute this
+                # method. This is used by a composite appender which needs
+                # to make sure all of its appender-refs are available when
+                # all configuration settings are done.
+
+                # Smuggle this sub-appender into the hash of known appenders 
+                # without attaching it to any logger directly.
+                $
+                Log::Log4perl::Logger::APPENDER_BY_NAME{$_} = $app;
+            }
+        }
+    }
+
+    return $appender;
+}
 
 ###########################################
 sub add_layout_by_name {
@@ -745,6 +795,29 @@ sub allow_code {
     }
 
     return $Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE;
+}
+
+################################################
+sub var_subst {
+################################################
+    my($varname, $subst_hash) = @_;
+
+        # Throw out blanks
+    $varname =~ s/\s+//g;
+
+    if(exists $subst_hash->{$varname}) {
+        print "Replacing variable: '$varname' => '$subst_hash->{$varname}'\n" 
+            if _INTERNAL_DEBUG;
+        return $subst_hash->{$varname};
+
+    } elsif(exists $ENV{$varname}) {
+        print "Replacing ENV variable: '$varname' => '$ENV{$varname}'\n" 
+            if _INTERNAL_DEBUG;
+        return $ENV{$varname};
+
+    }
+
+    die "Undefined Variable '$varname'";
 }
 
 1;
