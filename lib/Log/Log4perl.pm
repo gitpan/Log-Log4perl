@@ -12,7 +12,7 @@ use Log::Log4perl::Config;
 use Log::Dispatch::Screen;
 use Log::Log4perl::Appender;
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -193,15 +193,20 @@ Log::Log4perl - Log4j implementation for Perl
                             Log::Log4perl::Layout::SimpleLayout
     ###########################################
        
+=head1 ABSTRACT
+
+    Log::Log4perl provides a powerful logging API to your application,
 
 =head1 DESCRIPTION
 
-C<Log::Log4perl> implements the widely popular C<Log4j> logging
-package ([1]) in pure Perl.
+Log::Log4perl lets you remote-control and fine-tune the logging behaviour
+of your system from the outside. It implements the widely popular 
+(Java-based) Log4j logging package in pure Perl. 
 
-*** WARNING: ALPHA SOFTWARE ***
+B<For a detailed tutorial on Log::Log4perl usage, please read [1]>.
 
-A WORD OF CAUTION: THIS LIBRARY IS STILL UNDER CONSTRUCTION -- ON
+A WORD OF CAUTION: THIS LIBRARY IS ALPHA SOFTWARE AND STILL 
+UNDER CONSTRUCTION -- ON
 http://log4perl.sourceforge.net YOU'LL GET THE LATEST SCOOP.
 THE API HAS REACHED A MATURE STATE, WE WILL NOT CHANGE IT UNLESS FOR
 A GOOD REASON.
@@ -465,6 +470,34 @@ just chain together to a single string. Therefore
 
 are identical.
 
+=head2 Log and die or warn
+
+Often, when you croak / carp / warn / die, you want to log those messages.
+Rather than doing the following:
+
+    $logger->fatal($err) && die($err);
+
+you can use the following:
+
+    $logger->logwarn();
+    $logger->logdie();
+
+These print out log messages in the WARN and FATAL level, respectively,
+and then call the built-in warn() and die() functions. Since there is
+an ERROR level between WARN and FATAL, there are two additional helper
+functions in case you'd like to use ERROR for either warn() or die():
+
+    $logger->error_warn();
+    $logger->error_die();
+
+Finally, there's the Carp functions that do just what the Carp functions
+do, but with logging:
+
+    $logger->logcarp();        # warn w/ 1-level stack trace
+    $logger->logcluck();       # warn w/ full stack trace
+    $logger->logcroak();       # die w/ 1-level stack trace
+    $logger->logconfess();     # die w/ full stack trace
+
 =head2 Appenders
 
 If you don't define any appenders, nothing will happen. Appenders will
@@ -492,6 +525,9 @@ Here's the list of appender modules currently available via C<Log::Dispatch>:
        Log::Dispatch::Screen
        Log::Dispatch::Syslog
        Log::Dispatch::Tk (by Dominique Dumont)
+
+For additional information on appenders, please check the
+L<Log::Log4perl::Appender> manual page.
 
 Now let's assume that we want to go overboard and log C<info()> or
 higher prioritized messages in the C<My::Category> class
@@ -642,8 +678,8 @@ module's logging behaviour to their needs.
 
 C<Log::Log4perl> has been designed to understand C<Log4j> configuration
 files -- as used by the original Java implementation. Instead of 
-reiterating the format description in [1], let me just list three
-examples (also derived from [1]), which should also illustrate
+reiterating the format description in [2], let me just list three
+examples (also derived from [2]), which should also illustrate
 how it works:
 
     log4j.rootLogger=DEBUG, A1
@@ -739,10 +775,26 @@ replaced by the logging engine when it's time to log the message:
        event
     %% A literal percent (%) sign
 
+Also, C<%d> can be fine-tuned to display only certain characteristics
+of a date, according to the SimpleDateFormat in the Java World
+(http://java.sun.com/j2se/1.3/docs/api/java/text/SimpleDateFormat.html)
+
+In this way, C<%d{HH:mm}> displays only hours and minutes of the current date,
+while C<%d{yy, EEEE}> displays a two-digit year, followed by a spelled-out
+(like C<Wednesday>). 
+
+Similar options are available for shrinking the displayed category or
+limit file/path components, C<%f{1}> only displays the source file I<name>
+without any path components while C<%f> logs the full path. %c{2} only
+logs the last two components of the current category, C<Foo::Bar::Baz> 
+becomes C<Bar::Baz> and saves space.
+
+See L<Log::Log4perl::Layout::PatternLayout> for details.
+
 =back
 
 All placeholders are quantifiable, just like in I<printf>. Following this 
-tradition, C<%-20c> will reserve 20 chars for the category and right-justify it.
+tradition, C<%-20c> will reserve 20 chars for the category and left-justify it.
 
 Layouts are objects, here's how you create them:
 
@@ -942,11 +994,119 @@ a reference to it:
 
     Log::Log4perl->init( \%key_value_pairs );
 
+=head2 Incrementing and Decrementing the Log Levels
+
+Log4perl provides some internal functions for quickly adjusting the
+log level from within a running Perl program. 
+
+Now, some people might
+argue that you should adjust your levels from within an external 
+Log4perl configuration file, but Log4perl is everybody's darling.
+
+Typically run-time adjusting of levels is done
+at the beginning, or in response to some external input (like a
+"more logging" runtime command for diagnostics).
+
+To increase the level of logging currently being done, use:
+
+    $logger->more_logging($delta);
+
+and to decrease it, use:
+
+    $logger->less_logging($delta);
+
+$delta must be a positive integer (for now, we may fix this later ;).
+
+There are also two equivalent functions:
+
+    $logger->inc_level($delta);
+    $logger->dec_level($delta);
+
+They're included to allow you a choice in readability. Some folks
+will prefer more/less_logging, as they're fairly clear in what they
+do, and allow the programmer not to worry too much about what a Level
+is and whether a higher Level means more or less logging. However,
+other folks who do understand and have lots of code that deals with
+levels will probably prefer the inc_level() and dec_level() methods as
+they want to work with Levels and not worry about whether that means
+more or less logging. :)
+
+That diatribe aside, typically you'll use more_logging() or inc_level()
+as such:
+
+    my $v = 0; # default level of verbosity.
+    
+    GetOptions("v+" => \$v, ...);
+
+    $logger->more_logging($v);  # inc logging level once for each -v in ARGV
+
+=head2 Custom Log Levels
+
+First off, let me tell you that creating custom levels is heavily
+deprechiated by the log4j folks. Indeed, instead of creating additional
+levels on top of the predefined DEBUG, INFO, WARN, ERROR and FATAL, 
+you should use categories to control the amount of logging smartly,
+based on the location of the log-active code in the system.
+
+Nevertheless, 
+Log4perl provides a nice way to create custom levels via the 
+create_custom_level() routine function. However, this must be done
+before the first call to init() or get_logger(). Say you want to create
+a NOTIFY logging level that comes after WARN (and thus before INFO).
+You'd do such as follows:
+
+    use Log::Log4perl;
+    use Log::Log4perl::Level;
+
+    Log::Log4perl::Logger::create_custom_level("NOTIFY", "WARN");
+
+And that's it! create_custom_level() creates the following functions /
+variables for level FOO:
+
+    $FOO_INT		# integer to use in toLevel()
+    $logger->foo()	# log function to log if level = FOO
+    $logger->is_foo()	# true if current level is >= FOO
+
+These levels can also be used in your
+config file, but note that your config file probably won't be
+portable to another log4perl or log4j environment unless you've
+made the appropriate mods there too.
+
 =head1 How about Log::Dispatch::Config?
 
-Yeah, I've seen it. I like it, but I think it is too dependent
-on defining everything in a configuration file.
-I've designed C<Log::Log4perl> to be more flexible.
+Tatsuhiko Miyagawa's C<Log::Dispatch::Config> is a very clever 
+simplified logger implementation, covering some of the I<log4j>
+functionality. Among the things that 
+C<Log::Log4perl> can but C<Log::Dispatch::Config> can't are:
+
+=over 4
+
+=item *
+
+You can't assing categories to loggers. For small systems that's fine,
+but if you can't turn off and on detailed logging in only a tiny
+subsystem of your environment, you're missing out on a majorly
+useful log4j feature.
+
+=item *
+
+Defining appender thresholds. Important if you want to solve problems like
+"log all messages of level FATAL to STDERR, plus log all DEBUG
+messages in C<Foo::Bar> to a log file". If you don't have appenders
+thresholds, there's no way to prevent cluttering STDERR with DEBUG messages.
+
+=item *
+
+PatternLayout specifications in accordance with the standard
+(e.g. "%d{HH:mm}").
+
+=back
+
+Bottom line: Log::Dispatch::Config is fine for small systems with
+simple logging requirements. However, if you're
+designing a system with lots of subsystems which you need to control
+independantly, you'll love the features of C<Log::Log4perl>,
+which is equally easy to use.
 
 =head1 Using Log::Log4perl from wrapper classes
 
@@ -964,12 +1124,35 @@ of C<$Log::Log4perl::caller_depth> (defaults to 0) by one for every
 wrapper that's in between your application and C<Log::Log4perl>,
 then C<Log::Log4perl> will compensate for the difference.
 
+=head1 EXAMPLE
+
+A simple example to cut-and-paste and get started:
+
+    use Log::Log4perl qw(get_logger);
+
+    my $conf = q(
+    log4perl.category.Bar.Twix      = WARN, Screen
+    log4perl.appender.Screen        = Log::Dispatch::Screen
+    log4perl.appender.Screen.layout = \
+        Log::Log4perl::Layout::PatternLayout
+    log4perl.appender.Screen.layout.ConversionPattern = %d %m %n
+    );
+    
+    Log::Log4perl::init(\$conf);
+    
+    my $logger = get_logger("Bar::Twix");
+    $logger->error("Blah");
+
 =head1 INSTALLATION
 
-C<Log::Log4perl> needs C<Log::Dispatch> (2.00 or better) and
-C<Time::HiRes> (1.20 or better) from CPAN. They're automatically fetched
-if you're using the CPAN shell (CPAN.pm), because they're listed as 
-requirements in Makefile.PL.
+C<Log::Log4perl> needs C<Log::Dispatch> (2.00 or better) from CPAN.
+C<Time::HiRes> (1.20 or better) is required only if you need the
+fine-grained time stamps of the C<%r> parameter in
+C<Log::Log4perl::Layout::PatternLayout>.
+
+C<Log::Dispatch> is automatically fetched from CPAN
+if you're using the CPAN shell (CPAN.pm), because it's listed as 
+requirement in Makefile.PL.
 
 Manual installation works as usual with
 
@@ -981,7 +1164,7 @@ Manual installation works as usual with
 =head1 DEVELOPMENT
 
 C<Log::Log4perl> is under heavy development. The latest CVS tarball
-can be obtained from SourceForge, check C<http://log4perl.sorceforge.net>
+can be obtained from SourceForge, check C<http://log4perl.sourceforge.net>
 for details. Bug reports and feedback are always welcome, just email
 to our mailing list shown in L<CONTACT>.
 
@@ -991,15 +1174,21 @@ to our mailing list shown in L<CONTACT>.
 
 =item [1]
 
+Michael Schilli, "Retire your debugger, log smartly with Log::Log4perl!",
+Tutorial on perl.com, 09/2002, 
+http://www.perl.com/pub/a/2002/09/11/log4perl.html
+
+=item [2]
+
 Ceki Gülcü, "Short introduction to log4j",
 http://jakarta.apache.org/log4j/docs/manual.html
 
-=item [2]
+=item [3]
 
 Vipan Singla, "Don't Use System.out.println! Use Log4j.",
 http://www.vipan.com/htdocs/log4jhelp.html
 
-=item [3]
+=item [4]
 
 The Log::Log4perl project home page: http://log4perl.sourceforge.net
 
@@ -1020,6 +1209,7 @@ log4perl-devel@lists.sourceforge.net
     Contributors:
 
     Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
+    Erik Selberg <erik@selberg.com>
 
 =head1 COPYRIGHT AND LICENSE
 
