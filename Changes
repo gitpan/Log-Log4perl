@@ -2,6 +2,16 @@
  Revision history for Log::Log4perl
 ##################################################
 
+0.44 (04/25/2004)
+    * (ms) added filename() method to L4P::Appender::File as suggested 
+           by Lee Carmichael <lecar_red@yahoo.com>
+    * (ms) added RRDs appender Log::Log4perl::Appender::RRDs and testcases
+    * (ms) fixed Log::Log4perl::Appender to check if a an appender package
+           has already been loaded and skip 'require' in this case. 
+           Packages injected via Class::Prototyped caused an error with this.
+    * (ms) Extended the FAQ's "How can I write my own appender?" on
+           how to dynamically create new appenders via Class::Prototyped.
+
 0.43 (03/22/2004)
     * (ms) Applied patch by Markus Peter <warp@spin.de> for 'pipe'
            mode in Log::Log4perl::Appender::File
@@ -11,6 +21,9 @@
            (path fixed).
     * (ms) Lars Thegler <lars@thegler.dk> provided a patch to keep 
            compatibility with 5.005_03.
+    * (ms) Added a patch to avoid warnings on undefined MDC values referenced
+           via %X in PatternLayout. Now, the string "[undef]" is used. Bug
+           was reported by Ritu Kohli <Ritu.Kohli@ubs.com>
 
 0.42 (02/14/2004)
     * (kg) added filters to XML DOMConfig and DTD

@@ -14,7 +14,7 @@ use Log::Log4perl::Appender::TestBuffer;
 use Log::Log4perl::NDC;
 use Log::Log4perl::MDC;
 
-BEGIN { plan tests => 2 }
+BEGIN { plan tests => 3 }
 
 # Have TestBuffer log the Log::Dispatch priority
 Log::Log4perl::Appender::TestBuffer->reset();
@@ -75,3 +75,24 @@ $logb->debug("testmessage");
 
 ok($app1->buffer(), 
    "blah-host: testmessage blah-ip\n");
+
+# Check what happens if %X is used with an undef value
+Log::Log4perl::Appender::TestBuffer->reset();
+
+$conf = <<EOT;
+log4perl.logger   = ALL, BUF1
+log4perl.appender.BUF1           = Log::Log4perl::Appender::TestBuffer
+log4perl.appender.BUF1.layout    = Log::Log4perl::Layout::PatternLayout
+log4perl.appender.BUF1.layout.ConversionPattern = %X{quack}: %m %X{ip}%n
+EOT
+
+Log::Log4perl::init(\$conf);
+
+$app1 = Log::Log4perl::Appender::TestBuffer->by_name("BUF1");
+
+$logb = get_logger("b");
+
+$logb->debug("testmessage");
+
+ok($app1->buffer(), 
+   "[undef]: testmessage blah-ip\n");
