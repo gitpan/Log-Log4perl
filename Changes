@@ -2,6 +2,26 @@
 Revision history for Log::Log4perl
 ##################################################
 
+0.26 10/28/2002
+    * (kg) enabled %l (was missing from PatternLayout::define)
+    * (kg) got rid of "Use of uninitialized value in join or string" message
+           when some of $logger->debug(@array) when some of @array are undef 
+    * (ms) Stealth loggers and documentation
+    * (kg) Better error message for case reported by Hai Wu
+    * (ms) Added Log/Log4perl/FAQ.pm, which the homepage links to
+    * (ms) Took dependency on Test::More and Test::Simple out of the PPD file 
+           because of a problem with Activestate 5.6.1 reported 
+           by James Hahn <jrh3@att.com> 
+    * (ms) Added Log::Dispatch equivalent levels to the Log4perl loggers,
+           which are passed on the Log::Dispatch appenders now according
+           to the priority of the message instead of the default "DEBUG" 
+           setting
+    * (ms) Added %P process ID to PatternLayout as suggested by
+           Paul Harrington <Paul-Harrington@deshaw.com>. Also added 
+           %H as hostname
+    * (kg) Added %min.max formatter to PatternLayout
+    * (ms) Updated docs for Log::Log4perl::DateFormat
+
 0.25 10/06/2002
     * (ms) backwards-compatibility with perl 5.00503
     * (ms) added system-wide threshold, fixed java-app thresholds
@@ -222,6 +242,8 @@ Revision history for Log::Log4perl
 
 TODO (not assigned to anybody yet):
 ##################################################
+    * Get rid of Test::Simple and Test::More and the dependencies in
+      Makefile.PL
     * BasicConfigurator() vs. :easy, PropertyConfigurator()
     * get_logger() thread safety (two try to create it at the same time)
     * Object rendering
@@ -261,6 +283,12 @@ TODO Kevin:
 
 TODO Mike:
 ##################################################
+    * Add test case for Kevin's fix
+    * Separate INSTALL.TXT document
+    * Perl-way (-file => blah) creates conf-style or xml-style conf files 
+      (for transition).
+    * index.html on sourceforge should be part of CVS
+    * Release script should maintain old CPAN message on index.html
     * Turning on DEBUG in Logger.pm results in broken test cases and
       warnings
     * %20.30d

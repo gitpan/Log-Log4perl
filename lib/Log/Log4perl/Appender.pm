@@ -48,7 +48,7 @@ sub new {
         die "" if $appenderclass =~ /[^:\w]/;
     };
 
-    $@ and die "ERROR: appenderclass '$appenderclass' doesn't exist\n";
+    $@ and die "ERROR: appenderclass '$appenderclass' doesn't exist\n$@";
 
     $params{name} = unique_name() unless exists $params{name};
 
@@ -60,8 +60,10 @@ sub new {
     }
 
     my $appender = $appenderclass->new(
-            # Set min_level to default, *we* are controlling this now
-        min_level => 'debug', 
+            # Set min_level to the lowest setting. *we* are 
+            # controlling this now, the appender should just
+            # log it with no questions asked.
+        min_level => 'debug',
             # Set 'name' and other parameters
         map { $_ => $params{$_} } keys %params,
     );

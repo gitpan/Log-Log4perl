@@ -191,7 +191,7 @@ sub generate_coderef {
       my (\$level)   = pop;
       my \$message;
 
-      \$message = join('', map { ref \$_ eq "CODE" ? \$_->() : \$_ } \@_);
+      \$message = join('', map { ref \$_ eq "CODE" ? \$_->() : defined \$_ ? \$_ : '' } \@_);
       
       print("coderef: \$logger->{category}\n") if DEBUG;
 
@@ -205,7 +205,7 @@ sub generate_coderef {
           \$appender->log(
               #these get passed through to Log::Dispatch
               { name    => \$appender_name,
-                level   => 0,   
+                level   => \$Log::Log4perl::Level::L4P_TO_LD{\$level},   
                 message => \$message,
               },
               #these we need
@@ -818,3 +818,25 @@ sub dec_level {
 1;
 
 __END__
+
+=head1 NAME
+
+Log::Log4perl::Logger - Main Logger Class
+
+=head1 SYNOPSIS
+
+    # It's not here
+
+=head1 DESCRIPTION
+
+While everything that makes Log4perl tick is implemented here,
+please refer to L<Log::Log4perl> for documentation.
+
+=head1 SEE ALSO
+
+=head1 AUTHOR
+
+    Mike Schilli, <log4perl@perlmeister.com>
+    Kevin Goess, <cpan@goess.org>
+
+=cut
