@@ -1,5 +1,5 @@
 ######################################################################
-    Log::Log4perl 0.40
+    Log::Log4perl 0.41
 ######################################################################
 
 NAME
@@ -285,6 +285,14 @@ How to use it
         Log::Log4perl::Appender::Synchronized
 
     to log to the screen, to files and to databases.
+
+    On CPAN, you can find additional appenders like
+
+        Log::Log4perl::Layout::XMLLayout
+
+    by Guido Carls <gcarls@cpan.org>. It allows for hooking up Log::Log4perl
+    with the graphical Log Analyzer Chainsaw (see "Can I use Log::Log4perl
+    with log4j's Chainsaw?" in Log::Log4perl::FAQ).
 
   Additional Appenders via Log::Dispatch
     "Log::Log4perl" also supports *Dave Rolskys* excellent "Log::Dispatch"
@@ -871,7 +879,7 @@ Cool Tricks
     there's a way to have Log::Log4perl periodically check for changes in
     the configuration and reload it if necessary:
 
-        Log::Log4perl->init($conf_file, $delay);
+        Log::Log4perl->init_and_watch($conf_file, $delay);
 
     In this mode, Log::Log4perl will examine the configuration file
     $conf_file every $delay seconds for changes via the file's last
@@ -892,7 +900,7 @@ Cool Tricks
     configured to listen for a Unix signal to reload the configuration
     instead:
 
-        Log::Log4perl->init($conf_file, 'HUP');
+        Log::Log4perl->init_and_watch($conf_file, 'HUP');
 
     This will set up a signal handler for SIGHUP and reload the
     configuration if the application receives this signal, e.g. via the
@@ -1664,13 +1672,14 @@ AUTHORS
         Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
         James FitzGibbon <james.fitzgibbon@target.com>
         Paul Harrington <Paul-Harrington@deshaw.com>
+        David Hull <hull@paracel.com>
         Brett Rann <brettrann@mail.com>
         Erik Selberg <erik@selberg.com>
         Aaron Straup Cope <asc@vineyard.net>
         Mac Yang <mac@proofpoint.com>
 
 COPYRIGHT AND LICENSE
-    Copyright 2002 by Mike Schilli <m@perlmeister.com> and Kevin Goess
+    Copyright 2002-2004 by Mike Schilli <m@perlmeister.com> and Kevin Goess
     <cpan@goess.org>.
 
     This library is free software; you can redistribute it and/or modify it

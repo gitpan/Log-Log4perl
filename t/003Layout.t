@@ -10,7 +10,7 @@ use strict;
 # change 'tests => 1' to 'tests => last_test_to_print';
 #########################
 use Test;
-BEGIN { plan tests => 16 };
+BEGIN { plan tests => 17 };
 
 use Log::Log4perl;
 use Log::Log4perl::Layout;
@@ -68,6 +68,21 @@ ok($app->buffer(),
    'm#^\d{4}/\d\d/\d\d \d\d:\d\d:\d\d> That\'s the message$#'); 
 
 ############################################################
+# Log the date/time with own timer function
+############################################################
+sub mytimer1 {
+    # 2 days after 1/1/1970 to compensate for time zones
+    return 180000;
+}
+
+$app->buffer("");
+$layout = Log::Log4perl::Layout::PatternLayout->new(
+  { time_function => \&mytimer1 }, "%d{MM/yyyy}> %m");
+$app->layout($layout);
+$logger->debug("That's the message");
+ok($app->buffer(), 'm#01/1970#'); 
+
+############################################################
 # Check SimpleLayout
 ############################################################
 $app->buffer("");
@@ -111,7 +126,7 @@ $app->layout($layout);
 $logger->debug("That's the message");
 
 ok($app->buffer(), File::Spec->catfile(qw(t 003Layout.t)) .
-                   "-111 That's the message"); 
+                   "-126 That's the message"); 
 
 ############################################################
 # Don't append a newline if the message already contains one
