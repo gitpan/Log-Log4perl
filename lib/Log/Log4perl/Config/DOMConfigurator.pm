@@ -13,7 +13,7 @@ use XML::DOM;
 use Log::Log4perl::Level;
 use strict;
 
-use constant DEBUG => 1;
+use constant DEBUG => 0;
 
 our $VERSION = 0.02;
 
@@ -100,12 +100,10 @@ sub parse_category {
 
     #this is kind of funky, additivity has its own spot in the tree
     my $additivity = $node->getAttribute('additivity');
-    print "addt is --$additivity--\n";
     if (length $additivity > 0) {
         my $add_ptr = $l4p_tree->{additivity};
 
         for my $part (split /\.|::/, $name) {
-            print "+++pqrt is $part\n";
             $add_ptr->{$part} = {} unless exists $add_ptr->{$part};
             $add_ptr = $add_ptr->{$part};
         }
