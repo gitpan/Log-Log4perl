@@ -5,14 +5,22 @@ package Log::Log4perl::Layout::PatternLayout;
 use 5.006;
 use strict;
 use warnings;
+use Carp;
 use Log::Log4perl::Level;
 use Log::Log4perl::DateFormat;
+use Log::Log4perl::NDC;
+use Log::Log4perl::MDC;
 use File::Spec;
 
 our $TIME_HIRES_AVAILABLE;
 our $TIME_HIRES_AVAILABLE_WARNED = 0;
 our $HOSTNAME;
 our $PROGRAM_START_TIME;
+
+our %GLOBAL_USER_DEFINED_CSPECS = ();
+
+our $CSPECS = 'cCdfFHIlLmMnpPrtxX%';
+
 
 BEGIN {
     # Check if we've got Time::HiRes. If not, don't make a big fuss,
@@ -71,9 +79,23 @@ sub new {
         format      => undef,
         info_needed => {},
         stack       => [],
+        CSPECS      => $CSPECS,
     };
 
     bless $self, $class;
+
+    #add the global user-defined cspecs
+    foreach my $f (keys %GLOBAL_USER_DEFINED_CSPECS){
+            #add it to the list of letters
+        $self->{CSPECS} .= $f;
+             #for globals, the coderef is already evaled, 
+        $self->{USER_DEFINED_CSPECS}{$f} = $GLOBAL_USER_DEFINED_CSPECS{$f};
+    }
+
+    #add the user-defined cspecs local to this appender
+    foreach my $f (keys %{$data->{cspec}}){
+        $self->add_layout_cspec($f, $data->{cspec}{$f}{value});
+    }
 
     $self->define($layout_string);
 
@@ -96,7 +118,7 @@ sub define {
 
     # Parse the format
     $format =~ s/%(-?\d*(?:\.\d+)?) 
-                       ([cCdfFHIlLmMnpPrtxX%])
+                       ([$self->{CSPECS}])
                        (?:{(.*?)})*/
                        rep($self, $1, $2, $3);
                       /gex;
@@ -173,6 +195,8 @@ sub render {
         }
     }
 
+    $info{X} = "[No curlies defined]";
+    $info{x} = Log::Log4perl::NDC->get() if $self->{info_needed}->{x};
     $info{c} = $category;
     $info{d} = 1; # Dummy value, corrected later
     $info{n} = "\n";
@@ -195,8 +219,12 @@ sub render {
 
         # As long as they're not implemented yet ..
     $info{t} = "N/A";
-    $info{x} = "N/A";
-    $info{X} = "N/A";
+
+    foreach my $cspec (keys %{$self->{USER_DEFINED_CSPECS}}){
+        next unless $self->{info_needed}->{$cspec};
+        $info{$cspec} = $self->{USER_DEFINED_CSPECS}->{$cspec}->($self, 
+                                $message, $category, $priority, $caller_level);
+    }
 
         # Iterate over all info fields on the stack
     for my $e (@{$self->{stack}}) {
@@ -218,6 +246,8 @@ sub render {
         }
     }
 
+    #print STDERR "sprintf $self->{printformat}\n";
+
     return (sprintf $self->{printformat}, @results);
 }
 
@@ -230,6 +260,8 @@ sub curly_action {
         $data = shrink_category($data, $curlies);
     } elsif($ops eq "C") {
         $data = shrink_category($data, $curlies);
+    } elsif($ops eq "X") {
+        $data = Log::Log4perl::MDC->get($curlies);
     } elsif($ops eq "d") {
         $data = $curlies->format(current_time());
     } elsif($ops eq "F") {
@@ -259,6 +291,97 @@ sub shrink_category {
     return $category;
 }
 
+##################################################
+sub add_global_cspec {
+##################################################
+# This is a Class method.
+# Accepts a coderef or text
+##################################################
+
+    die "User Defined cspecs are not allowed\n"
+        if ($Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS);
+
+    my ($letter, $perlcode) = @_;
+
+    croak "Illegal value '$letter' in call to add_global_cspec()"
+        unless ($letter =~ /^[a-zA-Z]$/);
+
+    croak "Missing argument for perlcode for 'cspec.$letter' ".
+          "in call to add_global_cspec()"
+        unless $perlcode;
+
+    croak "Please don't redefine built-in cspecs [$CSPECS]\n".
+          "like you do for \"cspec.$letter\"\n "
+        if ($CSPECS =~/$letter/);
+
+    if (ref $perlcode eq 'CODE') {
+        $GLOBAL_USER_DEFINED_CSPECS{$letter} = $perlcode;
+
+    }elsif (! ref $perlcode){
+        
+        $GLOBAL_USER_DEFINED_CSPECS{$letter} = eval $perlcode;
+        if ($@) {
+            die qq{Compilation failed for your perl code for }.
+                qq{"log4j.PatternLayout.cspec.$letter":\n}.
+                qq{This is the error message: \t$@\n}.
+                qq{This is the code that failed: \n$perlcode\n};
+        }
+    }else{
+        croak "I don't know how to handle perlcode=$perlcode ".
+              "for 'cspec.$letter' in call to add_global_cspec()";
+    }
+}
+
+##################################################
+sub add_layout_cspec {
+##################################################
+# object method
+# adds a cspec just for this layout
+##################################################
+    my ($self, $letter, $perlcode) = @_;
+
+    die "User Defined cspecs are not allowed\n"
+        if ($Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS);
+
+    croak "Illegal value '$letter' in call to add_layout_cspec()"
+        unless ($letter =~ /^[a-zA-Z]$/);
+
+    croak "Missing argument for perlcode for 'cspec.$letter' ".
+          "in call to add_layout_cspec()"
+        unless $perlcode;
+
+    croak "Please don't redefine built-in cspecs [$CSPECS] \n".
+          "like you do for 'cspec.$letter'"
+        if ($CSPECS =~/$letter/);
+
+    if (ref $perlcode eq 'CODE') {
+
+        $self->{USER_DEFINED_CSPECS}{$letter} = $perlcode;
+
+    }elsif (! ref $perlcode){
+        
+        $self->{USER_DEFINED_CSPECS}{$letter} = eval $perlcode;
+        if ($@) {
+            die qq{Compilation failed for your perl code for }.
+                qq{"cspec.$letter":\n}.
+                qq{This is the error message: \t$@\n}.
+                qq{This is the code that failed: \n$perlcode\n};
+        }
+        croak "eval'ing your perlcode for 'cspec.$letter' ".
+              "doesn't return a coderef \n".
+              "Here is the perl code: \n\t$perlcode\n "
+            unless (ref $self->{USER_DEFINED_CSPECS}{$letter} eq 'CODE');
+
+
+    }else{
+        croak "I don't know how to handle perlcode=$perlcode ".
+              "for 'cspec.$letter' in call to add_layout_cspec()";
+    }
+
+    $self->{CSPECS} .= $letter;
+}
+
+
 1;
 
 __END__
@@ -274,6 +397,7 @@ Log::Log4perl::Layout::PatternLayout - Pattern Layout
   my $layout = Log::Log4perl::Layout::PatternLayout->new(
                                                    "%d (%F:%L)> %m");
 
+
 =head1 DESCRIPTION
 
 Creates a pattern layout according to
@@ -286,7 +410,7 @@ replaced by the logging engine when it's time to log the message:
 
     %c Category of the logging event.
     %C Fully qualified package (or class) name of the caller
-    %d Current date in yyyy/mm/dd hh:mm:ss format
+    %d Current date in yyyy/MM/dd hh:mm:ss format
     %F File where the logging event occurred
     %H Hostname
     %l Fully qualified name of the calling method followed by the
@@ -300,7 +424,21 @@ replaced by the logging engine when it's time to log the message:
     %P pid of the current process
     %r Number of milliseconds elapsed from program start to logging 
        event
+    %x The topmost NDC (see below)
+    %X{key} The entry 'key' of the MDC (see below)
     %% A literal percent (%) sign
+
+NDC and MDC are explained in L<Log::Log4perl/"Nested Diagnostic Context (NDC)">
+and L<Log::Log4perl/"Mapped Diagnostic Context (MDC)">.
+
+=head2 SECURITY NOTE
+
+The L<Custom cspecs> feature described below means arbitrary perl code can be 
+embedded in the config file.  In the rare case where the people who have 
+access to your config file are different from the people who write your code 
+and shouldn't have execute rights, you might want to set
+
+    $Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS = 1;
 
 =head2 Quantify placeholders
 
@@ -378,7 +516,62 @@ There's also a bunch of pre-defined formats:
 
     %d{ABSOLUTE}   "HH:mm:ss,SSS"
     %d{DATE}       "dd MMM YYYY HH:mm:ss,SSS"
-    %d{ISO8601}    "YYYY-mm-dd HH:mm:ss,SSS"
+    %d{ISO8601}    "YYYY-MM-dd HH:mm:ss,SSS"
+
+=head2 Custom cspecs
+
+First of all, "cspecs" is short for "conversion specifiers", which is 
+the log4j and the printf(3) term for what Mike is calling "placeholders."
+I suggested "cspecs" for this part of the api before I saw that Mike was 
+using "placeholders" consistently in the log4perl documentation.  Ah, the
+joys of collaboration ;=) --kg
+
+If the existing corpus of placeholders/cspecs isn't good enough for you,
+you can easily roll your own:
+
+    #'U' a global user-defined cspec     
+    log4j.PatternLayout.cspec.U = sub { return "UID: $< "}
+    
+    #'K' cspec local to appndr1                 (pid in hex)
+    log4j.appender.appndr1.layout.cspec.K = sub { return sprintf "%1x", $$}
+    
+    #and now you can use them
+    log4j.appender.appndr1.layout.ConversionPattern = %K %U %m%n
+
+The benefit of this approach is that you can define and use the cspecs 
+right next to each other in the config file.
+
+If you're an API kind of person, there's also this call:
+
+    Log::Log4perl::Layout::PatternLayout::
+                    add_global_cspec('Z', sub {'zzzzzzzz'}); #snooze?
+
+When the log messages is being put together, your anonymous sub 
+will be called with these arguments:
+
+    ($layout, $message, $category, $priority, $caller_level);
+    
+    layout: the PatternLayout object that called it
+    message: the logging message (%m)
+    category: e.g. groceries.beverages.adult.beer.schlitz
+    priority: e.g. DEBUG|WARN|INFO|ERROR|FATAL
+    caller_level: how many levels back up the call stack you have 
+        to go to find the caller
+
+There are currently some issues around providing API access to an 
+appender-specific cspec, but let us know if this is something you want.
+
+B<SECURITY NOTE>
+
+This feature means arbitrary perl code can be 
+embedded in the config file.  In the rare case where the people who have 
+access to your config file are different from the people who write your code 
+and shouldn't have execute rights, you might want to set
+
+    $Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS = 1;
+
+before you call init().
+
 
 =head1 SEE ALSO
 

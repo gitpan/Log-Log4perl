@@ -1,5 +1,5 @@
 ######################################################################
-    Log::Log4perl 0.26
+    Log::Log4perl 0.27
 ######################################################################
 
 NAME
@@ -332,6 +332,7 @@ How to use it
            Log::Dispatch::Email::MailSendmail,
            Log::Dispatch::Email::MIMELite
            Log::Dispatch::File
+           Log::Dispatch::RollingFile (by Mark Pfeiffer)
            Log::Dispatch::Handle
            Log::Dispatch::Screen
            Log::Dispatch::Syslog
@@ -523,7 +524,7 @@ How to use it
         log4j.appender.stdout=org.apache.log4j.ConsoleAppender
         log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
         log4j.appender.stdout.layout.ConversionPattern=%5p [%t] (%F:%L) - %m%n
-        log4j.appender.R=org.apache.log4j.FileAppender
+        log4j.appender.R=org.apache.log4j.RollingFileAppender
         log4j.appender.R.File=example.log
         log4j.appender.R.layout=org.apache.log4j.PatternLayout
         log4j.appender.R.layout.ConversionPattern=%p %t %c - %m%n
@@ -531,9 +532,9 @@ How to use it
     The root logger defines two appenders here: "stdout", which uses
     "org.apache.log4j.ConsoleAppender" (ultimately mapped by "Log::Log4perl"
     to "Log::Dispatch::Screen") to write to the screen. And "R", a
-    "org.apache.log4j.RollingFileAppender" (ultimately mapped by
-    "Log::Log4perl" to "Log::Dispatch::File" with the "File" attribute
-    specifying the log file.
+    "org.apache.log4j.RollingFileAppender" (mapped by "Log::Log4perl" to
+    "Log::Dispatch::FileRotate" with the "File" attribute specifying the log
+    file.
 
     See Log::Log4perl::Config for more examples and syntax explanations.
 
@@ -562,7 +563,7 @@ How to use it
 
             %c Category of the logging event.
             %C Fully qualified package (or class) name of the caller
-            %d Current date in yyyy/mm/dd hh:mm:ss format
+            %d Current date in yyyy/MM/dd hh:mm:ss format
             %F File where the logging event occurred
             %H Hostname
             %l Fully qualified name of the calling method followed by the
@@ -576,7 +577,12 @@ How to use it
             %P pid of the current process
             %r Number of milliseconds elapsed from program start to logging 
                event
+            %x The topmost NDC (see below)
+            %X{key} The entry 'key' of the MDC (see below)
             %% A literal percent (%) sign
+
+        NDC and MDC are explained in "Nested Diagnostic Context (NDC)" and
+        "Mapped Diagnostic Context (MDC)".
 
         Also, %d can be fine-tuned to display only certain characteristics
         of a date, according to the SimpleDateFormat in the Java World
@@ -593,6 +599,21 @@ How to use it
         %c{2} only logs the last two components of the current category,
         "Foo::Bar::Baz" becomes "Bar::Baz" and saves space.
 
+        If those placeholders aren't enough, then you can define your own
+        right in the config file like this:
+
+            log4j.PatternLayout.cspec.U = sub { return "UID $<" }
+    
+        SECURITY NOTE: this feature means arbitrary perl code can be
+        embedded in the config file. In the rare case where the people who
+        have access to your config file are different from the people who
+        write your code and shouldn't have execute rights, you might want to
+        set
+
+            $Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS = 1;
+
+        before you call init().
+
         See Log::Log4perl::Layout::PatternLayout for details.
 
     All placeholders are quantifiable, just like in *printf*. Following this
@@ -605,7 +626,7 @@ How to use it
         my $simple = Log::Log4perl::SimpleLayout();
 
             # create a flexible layout:
-            # ("yyyy/mm/dd hh:mm:ss (file:lineno)> message\n")
+            # ("yyyy/MM/dd hh:mm:ss (file:lineno)> message\n")
         my $pattern = Log::Log4perl::PatternLayout("%d (%F:%L)> %m%n");
 
     Every appender has exactly one layout assigned to it. You assign the
@@ -756,6 +777,35 @@ Categories
     choice. Think about the people taking over your code one day: The class
     hierarchy is probably what they know right up front, so it's easy for
     them to tune the logging to their needs.
+
+  Return Values
+    All logging methods return values indicating if their message actually
+    reached one or more appenders. If the message has been suppressed
+    because of level constraints, "undef" is returned.
+
+    For example,
+
+        my $ret = $logger->info("Message");
+
+    will return "undef" if the system debug level for the current category
+    is not "INFO" or more permissive. If Log::Log4perl forwarded the message
+    to one or more appenders, the number of appenders is returned.
+
+    If appenders decide to veto on the message with an appender threshold,
+    the log method's return value will have them excluded. This means that
+    if you've got one appender holding an appender threshold and you're
+    logging a message which passes the system's log level hurdle but not the
+    appender threshold, 0 will be returned by the log function.
+
+    The bottom line is: Logging functions will return a *true* value if the
+    message made it through to one or more appenders and a *false* value if
+    it didn't. This allows for constructs like
+
+        $logger->fatal("@_") or print STDERR "@_\n";
+
+    which will ensure that the fatal message isn't lost if the current level
+    is lower than FATAL or printed twice if the level is acceptable but an
+    appender already points to STDERR.
 
   Pitfalls with Categories
     Be careful with just blindly reusing the system's packages as
@@ -908,8 +958,8 @@ Cool Tricks
     And that's it! create_custom_level() creates the following functions /
     variables for level FOO:
 
-        $FOO_INT            # integer to use in toLevel()
-        $logger->foo()      # log function to log if level = FOO
+        $FOO_INT        # integer to use in toLevel()
+        $logger->foo()  # log function to log if level = FOO
         $logger->is_foo()   # true if current level is >= FOO
 
     These levels can also be used in your config file, but note that your
@@ -1040,11 +1090,106 @@ Cool Tricks
     As shown above, "easy_init()" will take any number of different logger
     definitions as hash references.
 
+    Also, stealth loggers feature the functions "LOGWARN()" and "LOGDIE()",
+    combining a logging request with a subsequent Perl warn() or die()
+    statement. So, for example
+
+        if($all_is_lost) {
+            LOGDIE("Terrible Problem");
+        }
+
+    will log the message if the package's logger is at least "FATAL" but
+    "die()" (including the traditional output to STDERR) in any case
+    afterwards.
+
+    See "Log and die or warn" for the similar "logdie()" and "logwarn()"
+    functions of regular (i.e non-stealth) loggers.
+
     When using Log::Log4perl in easy mode, please make sure you understand
-    the implications of "Pitfalls with Categories". By the way, these
-    convenience functions perform exactly as fast as the standard
-    Log::Log4perl logger methods, there's *no* performance penalty
+    the implications of "Pitfalls with Categories".
+
+    By the way, these convenience functions perform exactly as fast as the
+    standard Log::Log4perl logger methods, there's *no* performance penalty
     whatsoever.
+
+  Nested Diagnostic Context (NDC)
+    If you find that your application could use a global (thread-specific)
+    data stack which your loggers throughout the system have easy access to,
+    use Nested Diagnostic Contexts (NDCs).
+
+    For example, when handling a request of a web client, it's probably
+    useful to have the user's IP address available in all log statements
+    within code dealing with this particular request. Instead of passing
+    this piece of data between your application functions, you can just use
+    the global (but thread-specific) NDC mechanism. It allows you to push
+    data pieces (scalars usually) onto its stack via
+
+        Log::Log4perl::NDC->push("data piece");
+
+    and have your loggers retrieve them again via the "%x" placeholder in
+    the PatternLayout. The stack mechanism allows for nested structures.
+    Just make sure that at the end of the request, you decrease the stack by
+    calling
+
+        Log::Log4perl::NDC->pop();
+
+    Even if you should forget to do that, "Log::Log4perl" won't grow the
+    stack indefinitely, but limit it to a maximum, defined in
+    "Log::Log4perl::NDC".
+
+    To clear out the NDC stack, just call
+
+        Log::Log4perl::NDC->remove();
+
+    Again, the top of the stack is always available via the "%x" placeholder
+    in the Log::Log4perl::Layout::PatternLayout class whenever a logger
+    fires. What it does is just call
+
+        Log::Log4perl::NDC->get();
+
+    internally. See details on how this standard log4j feature is
+    implemented in Log::Log4perl::NDC.
+
+  Mapped Diagnostic Context (MDC)
+    Just like the previously discussed NDC stores thread-specific
+    information in a stack structure, the MDC implements a hash table to
+    store key/value pairs in.
+
+    The static method
+
+        Log::Log4perl::MDC->put($key, $value);
+
+    stores $value under a key $key, with which it can be retrieved later
+    (possibly in a totally different part of the system) by calling the
+    "get" method:
+
+        my $value = Log::Log4perl::MDC->get($key);
+
+    If no value has been stored previously under $key, the "get" method will
+    return the string "[undef]" to allow for easy string interpolation later
+    on.
+
+    Typically, MDC values are retrieved later on via the "%X{...}"
+    placeholder in "Log::Log4perl::Layout::PatternLayout". For example, an
+    application taking a web request might store the remote host like
+
+        Log::Log4perl::MDC->put("remote_host", $r->headers("HOST"));
+
+    at its beginning and if the appender's layout looks something like
+
+        log4perl.appender.Logfile.layout.ConversionPattern = %X{remote_host}: %m%n
+
+    then a log statement like
+
+       DEBUG("Content delivered");
+
+    will log something like
+
+       adsl-63.dsl.snf.pacbell.net: Content delivered 
+
+    later on in the program.
+
+    For details, please check Log::Log4perl::MDC.
 
 How about Log::Dispatch::Config?
     Tatsuhiko Miyagawa's "Log::Dispatch::Config" is a very clever simplified
@@ -1162,7 +1307,7 @@ SEE ALSO
     Log::Log4perl::Config, Log::Log4perl::Appender,
     Log::Log4perl::Layout::PatternLayout,
     Log::Log4perl::Layout::SimpleLayout, Log::Log4perl::Level,
-    Log::Log4perl::JavaMap
+    Log::Log4perl::JavaMap Log::Log4perl::NDC,
 
 AUTHORS
     Please send bug reports or requests for enhancements to the authors via

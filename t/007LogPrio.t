@@ -22,7 +22,9 @@ ok(1); # If we made it this far, we're ok.
 my $LOGFILE = "example.log";
 unlink $LOGFILE;
 
-Log::Log4perl->init("$EG_DIR/log4j-file-append-perl.conf");
+Log::Log4perl->init(
+	File::Spec->catfile($EG_DIR, 'log4j-file-append-perl.conf'));
+
 
 my $logger = Log::Log4perl->get_logger("");
 $logger->debug("Gurgel");
@@ -38,11 +40,11 @@ close FILE;
 my $file = File::Spec->catfile(qw(t 007LogPrio.t));
 
 my $exp = <<EOT;
-$file 28 DEBUG N/A  - Gurgel
-$file 29 INFO N/A  - Gurgel
-$file 30 WARN N/A  - Gurgel
-$file 31 ERROR N/A  - Gurgel
-$file 32 FATAL N/A  - Gurgel
+$file 30 DEBUG N/A  - Gurgel
+$file 31 INFO N/A  - Gurgel
+$file 32 WARN N/A  - Gurgel
+$file 33 ERROR N/A  - Gurgel
+$file 34 FATAL N/A  - Gurgel
 EOT
 
 unlink $LOGFILE;

@@ -126,8 +126,9 @@ sub set_output_methods {
 
         foreach my $appender_name (@{$logger->{appender_names}}){
 
-                #only one message per appender, please
-            next if $seen{$appender_name} ++;
+                #only one message per appender, (configurable)
+            next if $seen{$appender_name} ++ && 
+                    $Log::Log4perl::one_message_per_appender;
 
             push (@appenders,     
                    [$appender_name,
@@ -190,6 +191,7 @@ sub generate_coderef {
       my (\$logger)  = shift;
       my (\$level)   = pop;
       my \$message;
+      my \$appenders_fired = 0;
 
       \$message = join('', map { ref \$_ eq "CODE" ? \$_->() : defined \$_ ? \$_ : '' } \@_);
       
@@ -202,6 +204,7 @@ sub generate_coderef {
 
           print("  Sending message '\$message' (\$level) " .
                 "to \$appender_name\n") if DEBUG;
+
           \$appender->log(
               #these get passed through to Log::Dispatch
               { name    => \$appender_name,
@@ -211,10 +214,14 @@ sub generate_coderef {
               #these we need
               \$logger->{category},
               \$level,
-          );
+          ) and \$appenders_fired++;
+              # Only counting it if it returns a true value. Otherwise
+              # the appender threshold might have suppressed it after all.
     
       } #end foreach appenders
     
+      return \$appenders_fired;
+
     }; #end coderef
 
 EOL
@@ -244,6 +251,7 @@ EOL
     \$coderef = sub {
         print("noop: \n") if DEBUG;
         $watch_delay_code
+        return undef;
      };
 EOL
 

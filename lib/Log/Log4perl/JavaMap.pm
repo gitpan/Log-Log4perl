@@ -10,6 +10,8 @@ our %translate = (
         'Log::Log4perl::JavaMap::ConsoleAppender',
     'org.apache.log4j.FileAppender'    => 
         'Log::Log4perl::JavaMap::FileAppender',
+    'org.apache.log4j.RollingFileAppender'    => 
+        'Log::Log4perl::JavaMap::RollingFileAppender',
     'org.apache.log4j.TestBuffer'    => 
         'Log::Log4perl::JavaMap::TestBuffer',
 );
@@ -71,11 +73,11 @@ These are implemented
 
     ConsoleAppender - Log::Dispatch::Screen
     FileAppender    - Log::Dispatch::File
+    RollingFileAppender - Log::Dispatch::FileRotate (by Mark Pfeiffer)
 
 
 These should/will/might be implemented
 
-    RollingFileAppender - 
     DailyRollingFileAppender - 
     SMTPAppender     - Log::Dispatch::Email::MailSender
     SyslogAppender - Log::Dispatch::Syslog
