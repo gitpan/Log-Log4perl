@@ -2,6 +2,9 @@
 package Log::Log4perl;
 ##################################################
 
+    # Have this first to execute last
+END { local($?); Log::Log4perl::Logger::cleanup(); }
+
 use 5.006;
 use strict;
 use warnings;
@@ -14,7 +17,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '0.45';
+our $VERSION = '0.46';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -56,6 +59,8 @@ our $JOIN_MSG_ARRAY_CHAR = '';
     #version required for XML::DOM, to enable XML Config parsing
     #and XML Config unit tests
 our $DOM_VERSION_REQUIRED = '1.29'; 
+
+our $CHATTY_DESTROY_METHODS = 0;
 
 ##################################################
 sub import {
@@ -105,9 +110,8 @@ sub import {
 
             # Define default logger object in caller's package
         my $logger = get_logger("$caller_pkg");
-        my $string = "\$${caller_pkg}::_default_logger = \$logger";
-        eval $string or die "$@";
-
+        ${$caller_pkg . '::_default_logger'} = $logger;
+        
             # Define DEBUG, INFO, etc. routines in caller's package
         for(qw(DEBUG INFO WARN ERROR FATAL)) {
             my $level   = $_;
@@ -537,6 +541,11 @@ Example: C<$logger-E<gt>is_warn()> returns true if the logger's current
 level, as derived from either the logger's category (or, in absence of
 that, one of the logger's parent's level setting) is 
 C<$WARN>, C<$ERROR> or C<$FATAL>.
+
+Also available are a series of more Java-esque functions which return
+the same values. These are of the format C<isI<Level>Enabled()>,
+so C<$logger-E<gt>isDebugEnabled()> is synonymous to 
+C<$logger-E<gt>is_debug()>.
 
 These level checking functions
 will come in handy later, when we want to block unnecessary
@@ -2160,6 +2169,7 @@ our
     Erik Selberg <erik@selberg.com>
     Aaron Straup Cope <asc@vineyard.net>
     Lars Thegler <lars@thegler.dk>
+    David Viner <dviner@yahoo-inc.com>
     Mac Yang <mac@proofpoint.com>
 
 =head1 COPYRIGHT AND LICENSE
