@@ -2,6 +2,19 @@
 Revision history for Log::Log4perl
 ##################################################
 
+0.22 8/08/2002
+    * Threshold settings of appenders: 
+        $appender->threshold($ERROR);
+        log4j.appender.A.Threshold = ERROR
+    * Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
+      submitted two patches: 
+      - extended init() to take obj references (added, also added a test
+        case and documentation)
+      - fixed %F and %L if Log4perl is used by a wrapper class (accepted,
+        but changed variable name to Log::Log4perl::caller_depth as
+        a tribute to Log::Dispatch::Config, added test case 022Wrap
+        and documentation
+
 0.21 8/08/2002
     * Synopsis shows code samples in Log4perl.pm/README
     * Slight Log4j incompatibility but useful: %F{n} lets you
@@ -33,7 +46,7 @@ Revision history for Log::Log4perl
     * Added ':levels' target to Log::Log4perl to import $DEBUG, $ERROR,
       etc. levels (just like 'use Log::Log4perl::Level' works).
     * Added ':easy' target to allow for simple setup
-    * Messages can be passed in as subroutines to avoid parameter
+    * Code references can be passed in as log messages to avoid parameter
       passing penalty
 
 0.20 7/23/2002
@@ -165,7 +178,6 @@ Revision history for Log::Log4perl
 
 TODO:
 ##################################################
-    * (!!!) Threshold settings of appenders: log4j.appender.A.Threshold = ERROR
     * BasicConfigurator() vs. :easy, PropertyConfigurator()
     * Log/throw exception (either warn/die or real exceptions)
     * get_logger() thread safety (two try to create it at the same time)
@@ -198,6 +210,10 @@ TODO:
 
 Kevin:
 ##################################################
+    * Bug: If the *same* appender is being attached to several loggers,
+      appender inheritance doesn't work as expected: Even if the 
+      appender appears twice in the inheritance tree, it's only executed once.
+      But it actually needs to be run twice.
     * Dave Rolsky says: A couple other things: The JavaMap docs mention
       that SocketAppender has no Log::Dispatch equivalent. You could
       create an IO::Socket object and pass it to Log::Dispatch::Handle.
@@ -218,6 +234,17 @@ they're reused in the config file?
 
 Mike:
 ##################################################
+    * Kevin says:
+      >WARN in the config file
+      >   init_and_watch(...);
+      >   while (1){
+      >      ...blah...
+      >      $logger->level($INFO);
+      >      $logger->info(...);
+      >      sleep 5;
+      >   }
+      What's happening if the reload happens right after the level() call 
+      and the config file sets the level to WARN?
     * Documentation on Layout class changes
     * Document %d{} in layout
     * Documentation of Log::Log4perl::Logger and Log::Log4perl::Config

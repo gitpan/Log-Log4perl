@@ -133,7 +133,7 @@ sub _init {
                 if($appenderclass =~ /::/) {
                     # It's Perl
                     my @params = grep { $_ ne "layout" and
-                                        $_ ne "value" 
+                                        $_ ne "value"
                                       } keys %{$data->{appender}->{$appname}};
 
                     $appender = Log::Log4perl::Appender->new(
@@ -142,6 +142,13 @@ sub _init {
                         map { $_ => $data->{appender}->{$appname}->{$_}->{value} 
                             } @params,
                     ); 
+                    my $threshold = 
+                       $data->{appender}->{$appname}->{Threshold}->{value};
+                    if(defined $threshold) {
+                            # Need to split into two lines because of CVS
+                        $appender->threshold($
+                            Log::Log4perl::Level::PRIORITY{$threshold});
+                    }
                     add_layout_by_name($data, $appender, $appname);
                 } else {
                     # It's Java. Try to map
@@ -219,7 +226,10 @@ sub config_read {
 
     my @text;
 
-    if (ref $config) {
+    if (ref($config) eq 'HASH') {   # convert the hashref into a list 
+                                    # of name/value pairs
+        @text = map { $_ . '=' . $config->{$_} } keys %{$config};
+    } elsif (ref $config) {
         @text = split(/\n/,$$config);
     }else{
         Log::Log4perl::Logger::set_file_to_watch($config);
