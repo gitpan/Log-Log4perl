@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '0.48';
+our $VERSION = '0.49';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -1272,7 +1272,10 @@ C<get_logger()> is equivalent to C<get_logger(__PACKAGE__)>.
 
 =head2 Alternative initialization
 
-Instead of having C<init()> read in a configuration file, you can 
+Instead of having C<init()> read in a configuration file by specifying
+a file name or passing it a reference to an open filehandle
+(C<Log::Log4perl-E<gt>init( \*FILE )>),
+you can 
 also pass in a reference to a string, containing the content of
 the file:
 

@@ -1,5 +1,5 @@
 ######################################################################
-    Log::Log4perl 0.48
+    Log::Log4perl 0.49
 ######################################################################
 
 NAME
@@ -874,8 +874,10 @@ Cool Tricks
     "get_logger()" is equivalent to "get_logger(__PACKAGE__)".
 
   Alternative initialization
-    Instead of having "init()" read in a configuration file, you can also
-    pass in a reference to a string, containing the content of the file:
+    Instead of having "init()" read in a configuration file by specifying a
+    file name or passing it a reference to an open filehandle
+    ("Log::Log4perl->init( \*FILE )"), you can also pass in a reference to a
+    string, containing the content of the file:
 
         Log::Log4perl->init( \$config_text );
 

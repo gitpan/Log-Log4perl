@@ -1437,7 +1437,7 @@ graphical log UI I<Chainsaw>.
 =for html
 <p>
 <TABLE><TR><TD>
-<A HREF="/images/chainsaw2.jpg"><IMG SRC="/images/chainsaw2s.jpg"></A>
+<A HREF="http://log4perl.sourceforge.net/images/chainsaw2.jpg"><IMG SRC="http://log4perl.sourceforge.net/images/chainsaw2s.jpg"></A>
 <TR><TD>
 <I>Figure 1: Chainsaw receives Log::Log4perl events</I>
 </TABLE>
@@ -1693,6 +1693,48 @@ Now, calling
 will result in the desired output
 
     2004/05/06 11:13:04 IgnorantModule::some_method: Parbleu! An error!
+
+=head2 How come PAR (Perl Archive Toolkit) creates executables which then can't find their Log::Log4perl appenders?
+
+If not instructed otherwise, C<Log::Log4perl> dynamically pulls in 
+appender classes found in its configuration. If you specify
+
+    #!/usr/bin/perl
+    # mytest.pl
+
+    use Log::Log4perl qw(get_logger);
+
+    my $conf = q(
+      log4perl.category.Bar.Twix = WARN, Logfile
+      log4perl.appender.Logfile  = Log::Log4perl::Appender::Screen
+      log4perl.appender.Logfile.layout = SimpleLayout
+    );
+
+    Log::Log4perl::init(\$conf);
+    my $logger = get_logger("Bar::Twix");
+    $logger->error("Blah");
+
+then C<Log::Log4perl::Appender::Screen> will be pulled in while the program
+runs, not at compile time. If you have PAR compile the script above to an
+executable binary via
+
+    pp -o mytest mytest.pl
+
+and then run C<mytest> on a machine without having Log::Log4perl installed,
+you'll get an error message like
+
+    ERROR: can't load appenderclass 'Log::Log4perl::Appender::Screen'
+    Can't locate Log/Log4perl/Appender/Screen.pm in @INC ...
+
+Why? At compile time, C<pp> didn't realize that 
+C<Log::Log4perl::Appender::Screen> would be needed later on and didn't
+wrap it into the executable created. To avoid this, either say
+C<use Log::Log4perl::Appender::Screen> in the script explicitely or
+compile it with
+
+    pp -o mytest -M Log::Log4perl::Appender::Screen mytest.pl
+
+to make sure the appender class gets included.
 
 =cut
 
