@@ -12,7 +12,7 @@ use Log::Log4perl::Appender;
 use Log::Log4perl::Filter;
 use Carp;
 
-use constant DEBUG => 0;
+use constant _INTERNAL_DEBUG => 0;
 
     # Initialization
 our $ROOT_LOGGER;
@@ -27,7 +27,8 @@ sub reset {
 ##################################################
     $ROOT_LOGGER        = __PACKAGE__->_new("", $DEBUG);
 #    $LOGGERS_BY_NAME    = {};  #leave this alone, it's used by 
-                                #reset_all_output_methods when the config changes
+                                #reset_all_output_methods when 
+                                #the config changes
 
 
     #we've got a circular reference thing going on somewhere
@@ -63,7 +64,7 @@ sub _new {
     my($class, $category, $level) = @_;
 
     print("_new: $class/$category/", defined $level ? $level : "undef",
-          "\n") if DEBUG;
+          "\n") if _INTERNAL_DEBUG;
 
     die "usage: __PACKAGE__->_new(category)" unless
         defined $category;
@@ -72,7 +73,7 @@ sub _new {
 
        # Have we created it previously?
     if(exists $LOGGERS_BY_NAME->{$category}) {
-        print "_new: exists already\n" if DEBUG;
+        print "_new: exists already\n" if _INTERNAL_DEBUG;
         return $LOGGERS_BY_NAME->{$category};
     }
 
@@ -99,7 +100,7 @@ sub _new {
 ##################################################
 sub reset_all_output_methods {
 ##################################################
-    print "reset_all_output_methods: \n" if DEBUG;
+    print "reset_all_output_methods: \n" if _INTERNAL_DEBUG;
 
     foreach my $loggername ( keys %$LOGGERS_BY_NAME){
         $LOGGERS_BY_NAME->{$loggername}->set_output_methods;
@@ -121,7 +122,7 @@ sub set_output_methods {
 
    my ($level) = $self->level();
 
-   print "set_output_methods: $self->{category}/$level\n" if DEBUG;
+   print "set_output_methods: $self->{category}/$level\n" if _INTERNAL_DEBUG;
 
    #collect the appenders in effect for this category    
 
@@ -156,12 +157,12 @@ sub set_output_methods {
 						   $priority{$levelname}
 						   )) {
             print "  ($priority{$levelname} <= $level)\n"
-                  if DEBUG;
+                  if _INTERNAL_DEBUG;
             $self->{$levelname}      = $coderef;
             $self->{"is_$levelname"} = generate_is_xxx_coderef("1");
             #$self->{"is_$levelname"} = sub { 1 };
         }else{
-            print "  ($priority{$levelname} > $level)\n" if DEBUG;
+            print "  ($priority{$levelname} > $level)\n" if _INTERNAL_DEBUG;
             $self->{$levelname}      = $noop;
             $self->{"is_$levelname"} = generate_is_xxx_coderef("0");
             #$self->{"is_$levelname"} = sub { 0 };
@@ -170,7 +171,7 @@ sub set_output_methods {
         print("  Setting [$self] $self->{category}.$levelname to ",
               ($self->{$levelname} == $noop ? "NOOP" : 
               ("Coderef [$coderef]: " . scalar @appenders . " appenders")), 
-              "\n") if DEBUG;
+              "\n") if _INTERNAL_DEBUG;
     }
 }
 
@@ -180,7 +181,7 @@ sub generate_coderef {
     my $appenders = shift;
                     
     print "generate_coderef: ", scalar @$appenders, 
-          " appenders\n" if DEBUG;
+          " appenders\n" if _INTERNAL_DEBUG;
 
     my $coderef = '';
     my $watch_delay_code = '';
@@ -218,7 +219,7 @@ sub generate_coderef {
                                \$_->() : \$_ 
                           } \@_];                  
       
-      print("coderef: \$logger->{category}\n") if DEBUG;
+      print("coderef: \$logger->{category}\n") if _INTERNAL_DEBUG;
 
       $watch_delay_code;  #note interpolation here
       
@@ -226,7 +227,7 @@ sub generate_coderef {
           my (\$appender_name, \$appender) = \@\$a;
 
           print("  Sending message '<\$message>' (\$level) " .
-                "to \$appender_name\n") if DEBUG;
+                "to \$appender_name\n") if _INTERNAL_DEBUG;
                 
           \$appender->log(
               #these get passed through to Log::Dispatch
@@ -263,15 +264,15 @@ sub generate_noop_coderef {
     if (defined $Log::Log4perl::Config::WATCHER) {
         $watch_delay_code = generate_watch_code();
         $watch_delay_code = <<EOL;
-        my (\$logger)  = shift;
-        my (\$level)   = pop;
+        my \$logger;
+        my \$level;
         $watch_delay_code
 EOL
     }
 
     my $code = <<EOL;
     \$coderef = sub {
-        print("noop: \n") if DEBUG;
+        print("noop: \n") if _INTERNAL_DEBUG;
         $watch_delay_code
         return undef;
      };
@@ -292,13 +293,14 @@ sub generate_is_xxx_coderef {
 
     if (defined $Log::Log4perl::Config::WATCHER) {
 
-        $watch_code = <<'EOL';
-        my($logger, $subname) = @_;
-        if(time() > $Log::Log4perl::Config::Watch::NEXT_CHECK_TIME and
-           $Log::Log4perl::Config::WATCHER->change_detected()) {
+        my $cond = generate_watch_conditional();
+
+        $watch_code = <<EOL;
+        my(\$logger, \$subname) = \@_;
+        if($cond) {
             Log::Log4perl->init_and_watch();
             # Forward call to new configuration
-            return $logger->$subname();
+            return \$logger->\$subname();
         }
 EOL
     }
@@ -315,22 +317,44 @@ EOL
 ##################################################
 sub generate_watch_code {
 ##################################################
-    print "generate_watch_code:\n" if DEBUG;
+    print "generate_watch_code:\n" if _INTERNAL_DEBUG;
 
-    return <<'EOL';
-        print "exe_watch_code:\n" if DEBUG;
+    my $cond = generate_watch_conditional();
+
+    return <<EOL;
+        print "exe_watch_code:\n" if _INTERNAL_DEBUG;
                        
         # more closures here
-        if(time() > $Log::Log4perl::Config::Watch::NEXT_CHECK_TIME and
-           $Log::Log4perl::Config::WATCHER->change_detected()) {
+        if($cond) {
+            if(!defined \$logger) {
+                \$logger  = shift;
+                \$level   = pop;
+            }
+           
             Log::Log4perl->init_and_watch();
                        
-            my $methodname = lc($level);
-            $logger->$methodname(@_); # send the message
-                                      # to the new configuration
+            my \$methodname = lc(\$level);
+            \$logger->\$methodname(\@_); # send the message
+                                         # to the new configuration
             return;        #and return, we're done with this incarnation
         }
 EOL
+}
+
+##################################################
+sub generate_watch_conditional {
+##################################################
+
+    if(defined $Log::Log4perl::Config::Watch::SIGNAL_CAUGHT) {
+        # In this mode, we just check for the variable indicating
+        # that the signal has been caught
+        return q{$Log::Log4perl::Config::Watch::SIGNAL_CAUGHT};
+    }
+
+    # In this mode, we check if the config file has been modified
+    return q{time() > $Log::Log4perl::Config::Watch::NEXT_CHECK_TIME 
+              and $Log::Log4perl::Config::WATCHER->change_detected()};
+  
 }
 
 ##################################################
@@ -524,27 +548,30 @@ sub log {
 # create_custom_level 
 # creates a custom level
 # in theory, could be used to create the default ones
-
+######################################################################
 sub create_custom_level {
-  my $level = shift || die("create_custom_level: forgot to pass in a level string!");
-  my $after = shift || die("create_custom_level: forgot to pass in a level after which to place the new level!");
+######################################################################
+  my $level = shift || die("create_custom_level: " .
+                           "forgot to pass in a level string!");
+  my $after = shift || die("create_custom_level: " .
+                           "forgot to pass in a level after which to " .
+                           "place the new level!");
   my $syslog_equiv = shift; # can be undef
 
   ## only let users create custom levels before initialization
 
-  die("create_custom_level must be called before init or first get_logger() call") if ($INITIALIZED);
+  die("create_custom_level must be called before init or " .
+      "first get_logger() call") if ($INITIALIZED);
 
   my %PRIORITY = %Log::Log4perl::Level::PRIORITY; #convenience
 
-  die("create_custom_level: no such level \"$after\"! Use one of: ", join(", ", sort keys %PRIORITY))
-    unless $PRIORITY{$after};
+  die("create_custom_level: no such level \"$after\"! Use one of: ", 
+     join(", ", sort keys %PRIORITY)) unless $PRIORITY{$after};
 
   # figure out new int value by AFTER + (AFTER+ 1) / 2
 
   my $next_prio = Log::Log4perl::Level::get_lower_level($PRIORITY{$after}, 1);
   my $cust_prio = int(($PRIORITY{$after} + $next_prio) / 2);
-
-#   CORE::warn("Creating prio $cust_prio between $PRIORITY{$after} and $next_prio");
 
   die(qq{create_custom_level: Calculated level of $cust_prio already exists!
       This should only happen if you've made some insane number of custom
@@ -565,7 +592,7 @@ sub create_custom_level {
 
   Log::Log4perl::Level::add_priority($level, $cust_prio, $syslog_equiv);
 
-  print("Adding prio $level at $cust_prio\n") if DEBUG;
+  print("Adding prio $level at $cust_prio\n") if _INTERNAL_DEBUG;
 
   # get $LEVEL into namespace of Log::Log4perl::Logger to 
   # create $logger->foo nd $logger->is_foo
@@ -592,8 +619,11 @@ sub create_custom_level {
 # if we were hackin' lisp (or scheme), we'd be returning some lambda
 # expressions. But we aren't. :) So we'll just create some strings and
 # eval them.
+########################################
 sub create_log_level_methods {
-  my $level = shift || die("create_log_level_methods: forgot to pass in a level string!");
+########################################
+  my $level = shift || die("create_log_level_methods: " .
+                           "forgot to pass in a level string!");
   my $lclevel = lc($level);
   my $levelint = uc($level) . "_INT";
 
@@ -603,22 +633,22 @@ sub create_log_level_methods {
   # -erik
 
   *{__PACKAGE__ . "::$lclevel"} = sub {
-        print "$lclevel: ($_[0]->{category}/$_[0]->{level}) [@_]\n" if DEBUG;
+        print "$lclevel: ($_[0]->{category}/$_[0]->{level}) [@_]\n" 
+            if _INTERNAL_DEBUG;
         init_warn() unless $INITIALIZED;
         $_[0]->{$level}->(@_, $level);
      };
 
+  # Added these to have is_xxx functions as fast as xxx functions
+  # -ms
+
   *{__PACKAGE__ . "::is_$lclevel"} = sub {
       $_[0]->{"is_" . $level}->($_[0], "is_" . $lclevel);
-#    return Log::Log4perl::Level::isGreaterOrEqual($_[0]->level(),
-#						  $$level
-#						  ); 
   };
   
   use strict qw(refs);
 
   return 0;
-
 }
 
 #now lets autogenerate the logger subs based on the defined priorities
@@ -627,51 +657,17 @@ foreach my $level (keys %Log::Log4perl::Level::PRIORITY){
 }
 
 ##################################################
-#expected args are $logger, $msg, $levelname
-
-#sub fatal {
-#   print "fatal: ($_[0]->{category}/$_[0]->{level}) [@_]\n" if DEBUG;
-#   init_warn() unless $INITIALIZED;
-#   $_[0]->{FATAL}(@_, 'FATAL');
-#}
-#
-#sub error {
-#   print "error: ($_[0]->{category}/$_[0]->{level}) [@_]\n" if DEBUG;
-#   init_warn() unless $INITIALIZED;
-#   $_[0]->{ERROR}(@_, 'ERROR');
-#}
-#
-#sub warn {
-#   print "warn: ($_[0]->{category}/$_[0]->{level}) [@_]\n" if DEBUG;
-#   init_warn() unless $INITIALIZED;
-#   $_[0]->{WARN} (@_, 'WARN' );
-#}
-#
-#sub info {
-#   print "info: ($_[0]->{category}/$_[0]->{level}) [@_]\n" if DEBUG;
-#   init_warn() unless $INITIALIZED;
-#   $_[0]->{INFO} (@_, 'INFO' );
-#}
-#
-#sub debug {
-#   print "debug: ($_[0]->{category}/$_[0]->{level}) [@_]\n" if DEBUG;
-#   init_warn() unless $INITIALIZED;
-#   $_[0]->{DEBUG}(@_, 'DEBUG');
-#}
-
-#sub is_debug { return $_[0]->level() >= $DEBUG; }
-#sub is_info  { return $_[0]->level() >= $INFO; }
-#sub is_warn  { return $_[0]->level() >= $WARN; }
-#sub is_error { return $_[0]->level() >= $ERROR; }
-#sub is_fatal { return $_[0]->level() >= $FATAL; }
 sub init_warn {
-    CORE::warn "Log4perl: Seems like no initialization happened. Forgot to call init()?\n";
+##################################################
+    CORE::warn "Log4perl: Seems like no initialization happened. " .
+               "Forgot to call init()?\n";
     # Only tell this once;
     $INITIALIZED = 1;
-              }
+}
 
-##################################################
+#######################################################
 # call me from a sub-func to spew the sub-func's caller
+#######################################################
 sub callerline {
   # the below could all be just:
   # my ($pack, $file, $line) = caller(2);
@@ -695,14 +691,18 @@ sub callerline {
   return (@_, $mess, "\n");
 }
 
+#######################################################
 sub and_warn {
+#######################################################
   my $self = shift;
   my $msg = join("", @_[0 .. $#_]);
   chomp $msg;
   CORE::warn(callerline($msg));
 }
 
+#######################################################
 sub and_die {
+#######################################################
   my $self = shift;
   my $msg = join("", @_[0 .. $#_]);
   chomp $msg;
@@ -710,8 +710,8 @@ sub and_die {
 }
 
 ##################################################
-
 sub logwarn {
+##################################################
   my $self = shift;
   if ($self->is_warn()) {
         # Since we're one caller level off now, compensate for that.
@@ -722,7 +722,9 @@ sub logwarn {
   }
 }
 
+##################################################
 sub logdie {
+##################################################
   my $self = shift;
   if ($self->is_fatal()) {
         # Since we're one caller level off now, compensate for that.
@@ -735,16 +737,17 @@ sub logdie {
 }
 
 ##################################################
-
 # for die and warn, carp long/shortmess return line #s and the like
+##################################################
 sub noop {
+##################################################
   return @_;
 }
 
 ##################################################
-
 # clucks and carps are WARN level
 sub logcluck {
+##################################################
   my $self = shift;
   if ($self->is_warn()) {
     my $message = Carp::longmess(@_);
@@ -755,7 +758,9 @@ sub logcluck {
   }
 }
 
+##################################################
 sub logcarp {
+##################################################
   my $self = shift;
   if ($self->is_warn()) {
     my $message = Carp::shortmess(@_);
@@ -766,8 +771,11 @@ sub logcarp {
   }
 } 
 
+##################################################
 # croaks and confess are FATAL level
+##################################################
 sub logcroak {
+##################################################
   my $self = shift;
   my $message = Carp::shortmess(@_);
   if ($self->is_fatal()) {
@@ -779,7 +787,9 @@ sub logcroak {
   die(noop($message));
 }
 
+##################################################
 sub logconfess {
+##################################################
   my $self = shift;
   my $message = Carp::longmess(@_);
   if ($self->is_fatal()) {
@@ -792,10 +802,10 @@ sub logconfess {
 }
 
 ##################################################
-# 
 # in case people prefer to use error for warning
-
+##################################################
 sub error_warn {
+##################################################
   my $self = shift;
   if ($self->is_error()) {
     $self->error(@_);
@@ -803,7 +813,9 @@ sub error_warn {
   }
 }
 
+##################################################
 sub error_die {
+##################################################
   my $self = shift;
   if ($self->is_error()) {
     $self->error(@_);
@@ -811,28 +823,36 @@ sub error_die {
   $self->and_die(@_);
 }
 
+##################################################
 sub more_logging {
+##################################################
   my ($self) = shift;
   return $self->dec_level(@_);
 }
 
+##################################################
 sub inc_level {
+##################################################
     my ($self, $delta) = @_;
 
     $delta ||= 1;
 
-    $self->level(Log::Log4perl::Level::get_higher_level($self->level(), $delta));
+    $self->level(Log::Log4perl::Level::get_higher_level($self->level(), 
+                                                        $delta));
 
     $self->set_output_methods;
-
 }
 
+##################################################
 sub less_logging {
+##################################################
   my ($self) = shift;
   return $self->inc_level(@_);
 }
 
+##################################################
 sub dec_level {
+##################################################
     my ($self, $delta) = @_;
 
     $delta ||= 1;

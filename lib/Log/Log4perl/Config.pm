@@ -14,7 +14,7 @@ use Log::Log4perl::Filter;
 use Log::Log4perl::Filter::Boolean;
 use Log::Log4perl::Config::Watch;
 
-use constant DEBUG => 0;
+use constant _INTERNAL_DEBUG => 0;
 
 our $CONFIG_FILE_READS = 0;
 
@@ -45,19 +45,23 @@ sub init {
 sub init_and_watch {
 ###########################################
     my ($class, $config, $delay) = @_;
+        # delay can be a signal name - in this case we're gonna
+        # set up a signal handler.
 
     if(defined $WATCHER) {
         $config = $WATCHER->file();
-        $delay  = $WATCHER->check_interval();
+        if(defined $Log::Log4perl::Config::Watch::SIGNAL_CAUGHT) {
+            $delay  = $WATCHER->signal();
+        } else {
+            $delay  = $WATCHER->check_interval();
+        }
     }
 
-    print "init_and_watch ($config-$delay). Resetting.\n" if DEBUG;
+    print "init_and_watch ($config-$delay). Resetting.\n" if _INTERNAL_DEBUG;
 
     Log::Log4perl::Logger->reset();
 
     defined ($delay) or $delay = $DEFAULT_WATCH_DELAY;  
-
-    $delay =~ /\D/ && die "illegal non-numerical value for delay: $delay";
 
     if (ref $config) {
         die "Log4perl can only watch a file, not a string of " .
@@ -66,10 +70,17 @@ sub init_and_watch {
         die "Log4perl can only watch a file, not a url like $config";
     }
 
-    $WATCHER = Log::Log4perl::Config::Watch->new(
-                      file           => $config,
-                      check_interval => $delay,
-               );
+    if($delay =~ /\D/) {
+        $WATCHER = Log::Log4perl::Config::Watch->new(
+                          file   => $config,
+                          signal => $delay,
+                   );
+    } else {
+        $WATCHER = Log::Log4perl::Config::Watch->new(
+                          file           => $config,
+                          check_interval => $delay,
+                   );
+    }
 
     _init($class, $config);
 }
@@ -81,7 +92,7 @@ sub _init {
 
     my %additivity = ();
 
-    print "Calling _init\n" if DEBUG;
+    print "Calling _init\n" if _INTERNAL_DEBUG;
     $Log::Log4perl::Logger::INITIALIZED = 1;
 
     #keep track so we don't create the same one twice
@@ -104,7 +115,7 @@ sub _init {
     my $data = config_read($config);
     
     #use Data::Dumper;
-    #print Data::Dumper::Dumper($data) if DEBUG;
+    #print Data::Dumper::Dumper($data) if _INTERNAL_DEBUG;
 
     my @loggers      = ();
     my %filter_names = ();
@@ -140,7 +151,7 @@ sub _init {
 
             for my $path (@{leaf_paths($data->{$key})}) {
 
-                print "Path before: @$path\n" if DEBUG;
+                print "Path before: @$path\n" if _INTERNAL_DEBUG;
 
                 my $value = boolean_to_perlish(pop @$path);
 
@@ -156,7 +167,7 @@ sub _init {
                     &add_global_cspec(@$path[-1], $value);
 
                 }elsif ($key eq "filter"){
-                    print "Found entry @$path\n" if DEBUG;
+                    print "Found entry @$path\n" if _INTERNAL_DEBUG;
                     $filter_names{@$path[0]}++;
                 } else {
                     # This is a regular logger
@@ -169,13 +180,13 @@ sub _init {
         # Now go over all filters found by name
     for my $filter_name (keys %filter_names) {
 
-        print "Checking filter $filter_name\n" if DEBUG;
+        print "Checking filter $filter_name\n" if _INTERNAL_DEBUG;
 
             # The boolean filter needs all other filters already
             # initialized, defer its initialization
         if($data->{filter}->{$filter_name}->{value} eq
            "Log::Log4perl::Filter::Boolean") {
-            print "Boolean filter ($filter_name)\n" if DEBUG;
+            print "Boolean filter ($filter_name)\n" if _INTERNAL_DEBUG;
             $boolean_filters{$filter_name}++;
             next;
         }
@@ -185,7 +196,7 @@ sub _init {
             $type = $code;
         }
         
-        print "Filter $filter_name is of type $type\n" if DEBUG;
+        print "Filter $filter_name is of type $type\n" if _INTERNAL_DEBUG;
 
         my $filter;
 
@@ -242,7 +253,7 @@ sub _init {
                                                      \%appenders_created);
             my $appender;
 
-            print "appenderclass=$appenderclass\n" if DEBUG;
+            print "appenderclass=$appenderclass\n" if _INTERNAL_DEBUG;
 
             if (ref $appenderclass) {
 
@@ -256,7 +267,7 @@ sub _init {
 
                 if (Log::Log4perl::JavaMap::translate($appenderclass)){
                     # It's Java. Try to map
-                    print "Trying to map Java $appname\n" if DEBUG;
+                    print "Trying to map Java $appname\n" if _INTERNAL_DEBUG;
                     $appender = Log::Log4perl::JavaMap::get($appname, 
                                                 $data->{appender}->{$appname});
 
@@ -490,7 +501,7 @@ sub config_read {
         }
     }
     
-    print "Reading $config: [@text]\n" if DEBUG;
+    print "Reading $config: [@text]\n" if _INTERNAL_DEBUG;
 
     if ($text[0] =~ /^<\?xml /) {
         eval { require XML::DOM; require Log::Log4perl::Config::DOMConfigurator; };

@@ -46,7 +46,7 @@ sub prepare {
 ###########################################
     my($self, $format) = @_;
 
-    $format =~ s/(([GyMdhHmsSEDFwWakKz])\2*)/rep($self, $1)/ge;
+    $format =~ s/(([GyMdhHmsSEDFwWakKzZ])\2*)/rep($self, $1)/ge;
 
     $self->{fmt} = $format; 
 }
@@ -58,6 +58,13 @@ sub rep {
 
     my $first = substr $string, 0, 1;
     my $len   = length $string;
+
+    my $time=time();
+    my @g = gmtime($time);
+    my @t = localtime($time);
+    my $z = $t[1]-$g[1]+($t[2]-$g[2])*60+($t[7]-$g[7])*1440+
+            ($t[5]-$g[5])*(525600+(abs($t[7]-$g[7])>364)*1440);
+    my $offset = sprintf("%+.2d%.2d", $z/60, "00");
 
     #my ($s,$mi,$h,$d,$mo,$y,$wd,$yd,$dst) = localtime($time);
 
@@ -192,6 +199,13 @@ sub rep {
              [9, sub { substr sprintf("%06d", $_[0]), 0, $len }];
         return "%s";
 
+###############################
+#Z - RFC 822 time zone  -0800 #
+###############################
+    } elsif($first eq "Z") {
+        push @{$self->{stack}}, [10, sub { $offset }];
+        return "$offset";
+
 #############################
 #Something that's not defined
 #(F=day of week in month
@@ -299,6 +313,7 @@ which allows the following placeholders to be recognized and processed:
     k      hour in day (1~24)   (Number)        24
     K      hour in am/pm (0~11) (Number)        0
     z      time zone            (Text)          Pacific Standard Time
+    Z      RFC 822 time zone    (Text)          -0800
     '      escape for text      (Delimiter)
     ''     single quote         (Literal)       '
 
@@ -350,7 +365,7 @@ someone (and that could be you :) implements them:
     W week in month
     k hour in day 
     K hour in am/pm
-    z timezone
+    z timezone (but we got 'Z' for the numeric time zone value)
 
 Also, C<Log::Log4perl::DateFormat> just knows about English week and
 month names, internationalization support has to be added.
