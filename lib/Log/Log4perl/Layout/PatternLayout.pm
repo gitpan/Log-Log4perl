@@ -6,6 +6,7 @@ use 5.006;
 use strict;
 use warnings;
 use Carp;
+use Log::Log4perl::Util;
 use Log::Log4perl::Level;
 use Log::Log4perl::DateFormat;
 use Log::Log4perl::NDC;
@@ -27,18 +28,20 @@ BEGIN {
     # just set a flag so we know later on that we can't have fine-grained
     # time stamps
     $TIME_HIRES_AVAILABLE = 0;
-    eval { require Time::HiRes; };
-    if($@) {
-        $PROGRAM_START_TIME = time();
-    } else {
+    if(Log::Log4perl::Util::module_available("Time::HiRes")) {
+        require Time::HiRes;
         $TIME_HIRES_AVAILABLE = 1;
         $PROGRAM_START_TIME = [Time::HiRes::gettimeofday()];
+    } else {
+        $PROGRAM_START_TIME = time();
     }
 
     # Check if we've got Sys::Hostname. If not, just punt.
     $HOSTNAME = "unknown.host";
-    eval { require Sys::Hostname; };
-    $HOSTNAME = Sys::Hostname::hostname() unless $@;
+    if(Log::Log4perl::Util::module_available("Sys::Hostname")) {
+        require Sys::Hostname;
+        $HOSTNAME = Sys::Hostname::hostname();
+    }
 }
 
 ##################################################
@@ -199,9 +202,18 @@ sub render {
         if($self->{info_needed}->{M} or
            $self->{info_needed}->{l} or
            0) {
-            # For the name of the subroutine the logger was triggered,
-            # we need to go one more level up
-            $subroutine = (caller($caller_level+1))[3];
+            # To obtain the name of the subroutine which triggered the 
+            # logger, we need to go one additional level up.
+            my $levels_up = 1; 
+            {
+                $subroutine = (caller($caller_level+$levels_up))[3];
+                    # If we're inside an eval, go up one level further.
+                if(defined $subroutine and
+                   $subroutine eq "(eval)") {
+                    $levels_up++;
+                    redo;
+                }
+            }
             $subroutine = "main::" unless $subroutine;
             $info{M} = $subroutine;
             $info{l} = "$subroutine $filename ($line)";
@@ -245,7 +257,7 @@ sub render {
     foreach my $cspec (keys %{$self->{USER_DEFINED_CSPECS}}){
         next unless $self->{info_needed}->{$cspec};
         $info{$cspec} = $self->{USER_DEFINED_CSPECS}->{$cspec}->($self, 
-                                $message, $category, $priority, $caller_level);
+                              $message, $category, $priority, $caller_level+1);
     }
 
         # Iterate over all info fields on the stack

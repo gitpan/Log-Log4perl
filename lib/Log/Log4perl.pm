@@ -6,6 +6,7 @@ use 5.006;
 use strict;
 use warnings;
 
+use Log::Log4perl::Util;
 use Log::Log4perl::Logger;
 use Log::Log4perl::Level;
 use Log::Log4perl::Config;
@@ -13,7 +14,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '0.41';
+our $VERSION = '0.42';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -55,7 +56,6 @@ our $JOIN_MSG_ARRAY_CHAR = '';
     #version required for XML::DOM, to enable XML Config parsing
     #and XML Config unit tests
 our $DOM_VERSION_REQUIRED = '1.29'; 
-
 
 ##################################################
 sub import {
@@ -165,6 +165,13 @@ sub reset { # Mainly for debugging/testing
 ##################################################
     # Delegate this to the logger ...
     return Log::Log4perl::Logger->reset();
+}
+
+##################################################
+sub init_once { # Call init only if it hasn't been
+                # called yet.
+##################################################
+    init(@_) unless $Log::Log4perl::Logger::INITIALIZED;
 }
 
 ##################################################
@@ -462,7 +469,7 @@ we're using with a handle to the C<Logger>:
     }
 
 Instead, if a function/method wants a reference to the logger, it
-just calls the Logger's static C<get_logger()> method to obtain
+just calls the Logger's static C<get_logger($category)> method to obtain
 a reference to the I<one and only> possible logger object of
 a certain category.
 That's called a I<singleton> if you're a Gamma fan.
@@ -1131,6 +1138,40 @@ real class name as an argument and all other methods can determine it
 via C<ref($self)>), so it shouldn't be a problem to get the right class
 every time.
 
+=head2 Initialize once and only once
+
+It's important to realize that Log::Log4perl gets initialized once and only
+once, typically at the start of a program or system. Calling C<init()>
+more than once will cause it to clobber the existing configuration and
+I<replace> it by the new one.
+
+If you're in a traditional CGI environment, where every request is
+handeled by a new process, calling C<init()> every time is fine. In
+persistent environments like C<mod_perl>, however, Log::Log4perl
+should be initialized either at system startup time (Apache offers
+startup handlers for that) or via
+
+        # Init or skip if already done
+    Log::Log4perl->init_once($conf_file);
+
+C<init_once()> is identical to C<init()>, just with the exception
+that it will leave a potentially existing configuration alone and 
+will only call C<init()> if Log::Log4perl hasn't been initialized yet.
+
+If you're just curious if Log::Log4perl has been initialized yet, the
+
+    if(Log::Log4perl->initialized()) {
+        # Not initialized yet ...
+    }
+
+check can be used.
+
+If you're afraid that the components of your system are stepping on 
+each other's toes or if you are thinking that different components should
+initialize Log::Log4perl seperately, try to consolidate your system
+to use a centralized Log4perl configuration file and use 
+Log4perl's I<categories> to separate your components.
+
 =head1 Custom Filters
 
 Log4perl allows the use of customized filters in its appenders
@@ -1185,6 +1226,11 @@ C<Log::Log4perl> into the current namespace:
 
     use Log::Log4perl qw(get_logger);
     my $logger = get_logger();
+
+Please note this difference: To obtain the root logger, please use
+C<get_logger("")>, call it without parameters (C<get_logger()>), you'll
+get the logger of a category named after the current package. 
+C<get_logger()> is equivalent to C<get_logger(__PACKAGE__)>.
 
 =head2 Alternative initialization
 
