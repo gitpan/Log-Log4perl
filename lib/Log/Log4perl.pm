@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '0.49';
+our $VERSION = '0.50';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -145,6 +145,23 @@ sub import {
     if(exists $tags{':nowarn'}) {
         $Log::Log4perl::Logger::NON_INIT_WARNED = 1;
         delete $tags{':nowarn'};
+    }
+
+    if(exists $tags{':resurrect'}) {
+        my $FILTER_MODULE = "Filter::Util::Call";
+        if(! Log::Log4perl::Util::module_available($FILTER_MODULE)) {
+            die "$FILTER_MODULE required with :unhide" .
+                "(install from CPAN)";
+        }
+        eval "require $FILTER_MODULE" or die "Cannot pull in $FILTER_MODULE";
+        Filter::Util::Call::filter_add(
+            sub {
+                my($status);
+                s/^\s*###l4p// if
+                    ($status = Filter::Util::Call::filter_read()) > 0;
+                $status;
+                });
+        delete $tags{':resurrect'};
     }
 
     if(keys %tags) {
@@ -302,6 +319,61 @@ sub get_logger {  # Get an instance (shortcut)
 sub appenders {  # Get all defined appenders hashref
 ##################################################
     return \%Log::Log4perl::Logger::APPENDER_BY_NAME;
+}
+
+##################################################
+sub appender_thresholds_adjust {  # Readjust appender thresholds
+##################################################
+        # If someone calls L4p-> and not L4p::
+    shift if $_[0] eq __PACKAGE__;
+    my($delta, $appenders) = @_;
+
+    if(defined $appenders) {
+            # Map names to objects
+        $appenders = [map { 
+                       die "Unkown appender: '$_'" unless exists
+                          $Log::Log4perl::Logger::APPENDER_BY_NAME{
+                            $_};
+                       $Log::Log4perl::Logger::APPENDER_BY_NAME{
+                         $_} 
+                      } @$appenders];
+    } else {
+            # Just hand over all known appenders
+        $appenders = [values %{Log::Log4perl::appenders()}] unless 
+            defined $appenders;
+    }
+
+        # Change all appender thresholds;
+    foreach my $app (@$appenders) {
+        my $old_thres = $app->threshold();
+        my $new_thres;
+        if($delta > 0) {
+            $new_thres = Log::Log4perl::Level::get_higher_level(
+                             $old_thres, $delta);
+        } else {
+            $new_thres = Log::Log4perl::Level::get_lower_level(
+                             $old_thres, -$delta);
+        }
+
+        $app->threshold($new_thres);
+    }
+}
+
+##################################################
+sub appender_by_name {  # Get an appender by name
+##################################################
+        # If someone calls L4p->appender_by_name and not L4p::appender_by_name
+    shift if $_[0] eq __PACKAGE__;
+
+    my($name) = @_;
+
+    if(exists $Log::Log4perl::Logger::APPENDER_BY_NAME{
+                $name}) {
+        return $Log::Log4perl::Logger::APPENDER_BY_NAME{
+                 $name}->{appender};
+    } else {
+        return undef;
+    }
 }
 
 ##################################################
@@ -505,21 +577,21 @@ That's called a I<singleton> if you're a Gamma fan.
 
 How does the logger know
 which messages it is supposed to log and which ones to suppress?
-C<Log::Log4perl> works with inheritence: The config file above didn't 
+C<Log::Log4perl> works with inheritance: The config file above didn't 
 specify anything about C<My::MegaPackage>. 
 And yet, we've defined a logger of the category 
 C<My::MegaPackage>.
 In this case, C<Log::Log4perl> will walk up the class hierarchy
 (C<My> and then the we're at the root) to figure out if a log level is
 defined somewhere. In the case above, the log level at the root
-(root I<always> defines a log level, but not necessary an appender)
+(root I<always> defines a log level, but not necessarily an appender)
 defines that 
 the log level is supposed to be C<ERROR> -- meaning that I<debug>
 and I<info> messages are suppressed.
 
 =head2 Log Levels
 
-There's five predefined log levels: C<FATAL>, C<ERROR>, C<WARN>, C<INFO> 
+There are five predefined log levels: C<FATAL>, C<ERROR>, C<WARN>, C<INFO> 
 and C<DEBUG> (in descending priority). Your configured logging level
 has to at least match the priority of the logging message.
 
@@ -640,6 +712,7 @@ logger has one.
 C<Log::Log4perl> already comes with a standard set of appenders:
 
     Log::Log4perl::Appender::Screen
+    Log::Log4perl::Appender::ScreenColoredLevels
     Log::Log4perl::Appender::File
     Log::Log4perl::Appender::Socket
     Log::Log4perl::Appender::DBI
@@ -827,7 +900,7 @@ debug level of the logger and others.
 
 There's currently two layouts defined in C<Log::Log4perl>: 
 C<Log::Log4perl::Layout::SimpleLayout> and
-C<Log::Log4perl::Layout::Patternlayout>:
+C<Log::Log4perl::Layout::PatternLayout>:
 
 =over 4 
 
@@ -837,7 +910,7 @@ formats a message in a simple
 way and just prepends it by the debug level and a hyphen:
 C<"$level - $message>, for example C<"FATAL - Can't open password file">.
 
-=item C<Log::Log4perl::PatternLayout> 
+=item C<Log::Log4perl::Layout::PatternLayout> 
 
 on the other hand is very powerful and 
 allows for a very flexible format in C<printf>-style. The format
@@ -1427,7 +1500,8 @@ username for a DBI appender:
 
 However, please note the difference between these code snippets and those
 used for user-defined conversion specifiers as discussed in
-L<Log::Log4perl::PatternLayout>: While the snippets above are run I<once>
+L<Log::Log4perl::Layout::PatternLayout>: 
+While the snippets above are run I<once>
 when C<Log::Log4perl::init()> is called, the conversion specifier
 snippets are executed I<each time> a message is rendered according to
 the PatternLayout.
@@ -1898,6 +1972,72 @@ later on in the program.
 
 For details, please check L<Log::Log4perl::MDC>.
 
+=head2 Resurrecting hidden Log4perl Statements
+
+Sometimes scripts need to be deployed in environments without having
+Log::Log4perl installed yet. On the other hand, you dont't want to
+live without your Log4perl statements -- they're gonna come in
+handy later.
+
+So, just deploy your script with Log4perl statements commented out with the
+pattern C<###l4p>, like in
+
+    ###l4p DEBUG "It works!";
+    # ...
+    ###l4p INFO "Really!";
+
+If Log::Log4perl is available,
+use the C<:resurrect> tag to have Log4perl resurrect those burried 
+statements before the script starts running:
+
+    use Log::Log4perl qw(:resurrect :easy);
+
+    ###l4p Log::Log4perl->easy_init($DEBUG);
+    ###l4p DEBUG "It works!";
+    # ...
+    ###l4p INFO "Really!";
+
+This will have a source filter kick in and indeed print
+
+    2004/11/18 22:08:46 It works!
+    2004/11/18 22:08:46 Really!
+
+In environments lacking Log::Log4perl, just comment out the first line
+and the script will run nevertheless (but of course without logging):
+
+    # use Log::Log4perl qw(:resurrect :easy);
+
+    ###l4p Log::Log4perl->easy_init($DEBUG);
+    ###l4p DEBUG "It works!";
+    # ...
+    ###l4p INFO "Really!";
+
+because everything's a regular comment now.
+
+=head2 Access defined appenders
+
+All appenders defined in the configuration file or via Perl code
+can be retrieved by the C<appender_by_name()> class method. This comes
+in handy if you want to manipulate or query appender properties after
+the Log4perl configuration has been loaded via C<init()>.
+
+=head2 Modify appender thresholds
+
+To conveniently adjust appender thresholds (e.g. because a script
+uses more_logging()), use
+
+       # decrease thresholds of all appenders
+    Log::Log4perl->appender_thresholds_adjust(-1);
+
+This will decrease the thresholds of all appenders in the system by
+one level, i.e. WARN becomes INFO, INFO becomes DEBUG, etc. To only modify 
+selected ones, use
+
+       # decrease thresholds of all appenders
+    Log::Log4perl->appender_thresholds_adjust(-1, ['AppName1', ...]);
+
+and pass the names of affected appenders in a ref to an array.
+
 =head1 Advanced configuration within Perl
 
 Initializing Log::Log4perl can certainly also be done from within Perl.
@@ -1963,7 +2103,7 @@ C<Log::Dispatch> objects to blindly log everything we send them
 want to call the shots and decide on when and what to log.
 
 The call to the appender's I<layout()> method specifies the format (as a
-previously created C<Log::Log4perl::PatternLayout> object) in which the
+previously created C<Log::Log4perl::Layout::PatternLayout> object) in which the
 message is being logged in the specified appender. 
 If you don't specify a layout, the logger will fall back to
 C<Log::Log4perl::SimpleLayout>, which logs the debug level, a hyphen (-)
@@ -1976,7 +2116,7 @@ Layouts are objects, here's how you create them:
 
         # create a flexible layout:
         # ("yyyy/MM/dd hh:mm:ss (file:lineno)> message\n")
-    my $pattern = Log::Log4perl::PatternLayout("%d (%F:%L)> %m%n");
+    my $pattern = Log::Log4perl::Layout::PatternLayout("%d (%F:%L)> %m%n");
 
 Every appender has exactly one layout assigned to it. You assign
 the layout to the appender using the appender's C<layout()> object:
@@ -2121,7 +2261,7 @@ why we're now shipping Log::Log4perl with its own standard appenders
 and only if you wish to use additional ones, you'll have to go through
 the C<Log::Dispatch> installation process.
 
-Log::Log4perl needs C<Test::Simple>, C<Test::Harness> and C<File::Spec>, 
+Log::Log4perl needs C<Test::More>, C<Test::Harness> and C<File::Spec>, 
 but they already come with fairly recent versions of perl.
 If not, everything's automatically fetched from CPAN if you're using the CPAN 
 shell (CPAN.pm), because they're listed as dependencies.
