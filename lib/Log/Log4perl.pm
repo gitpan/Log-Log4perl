@@ -2,7 +2,6 @@
 package Log::Log4perl;
 ##################################################
 
-    # Have this first to execute last
 END { local($?); Log::Log4perl::Logger::cleanup(); }
 
 use 5.006;
@@ -17,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '0.47';
+our $VERSION = '0.48';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -118,7 +117,7 @@ sub import {
             my $lclevel = lc($_);
             *{"$caller_pkg\::$_"} = sub { 
                 Log::Log4perl::Logger::init_warn() unless 
-                    $Log::Log4perl::INITIALIZED or
+                    $Log::Log4perl::Logger::INITIALIZED or
                     $Log::Log4perl::Logger::NON_INIT_WARNED;
                 $logger->{$level}->($logger, @_, $level);
             };
@@ -128,7 +127,7 @@ sub import {
 
         *{"$caller_pkg\::LOGDIE"} = sub {
             Log::Log4perl::Logger::init_warn() unless 
-                    $Log::Log4perl::INITIALIZED or
+                    $Log::Log4perl::Logger::INITIALIZED or
                     $Log::Log4perl::Logger::NON_INIT_WARNED;
             $logger->{FATAL}->($logger, @_, "FATAL");
             CORE::die(Log::Log4perl::Logger::callerline(join '', @_));
@@ -136,7 +135,7 @@ sub import {
 
         *{"$caller_pkg\::LOGWARN"} = sub { 
             Log::Log4perl::Logger::init_warn() unless 
-                    $Log::Log4perl::INITIALIZED or
+                    $Log::Log4perl::Logger::INITIALIZED or
                     $Log::Log4perl::Logger::NON_INIT_WARNED;
             $logger->{WARN}->($logger, @_, "WARN");
             CORE::warn(Log::Log4perl::Logger::callerline(join '', @_));
@@ -274,7 +273,7 @@ sub easy_init { # Initialize the root logger with a screen appender
         $log->add_appender($app);
     }
 
-    $Log::Log4perl::INITIALIZED = 1;
+    $Log::Log4perl::Logger::INITIALIZED = 1;
 }
 
 ##################################################
@@ -1280,7 +1279,7 @@ the file:
     Log::Log4perl->init( \$config_text );
 
 Also, if you've got the C<name=value> pairs of the configuration in
-a hash, you can just as well initialized C<Log::Log4perl> with
+a hash, you can just as well initialize C<Log::Log4perl> with
 a reference to it:
 
     my %key_value_pairs = (

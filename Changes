@@ -2,6 +2,36 @@
  Revision history for Log::Log4perl
 ##################################################
 
+0.48 (08/20/2004)
+    * (ms) fixed bug reported by Chip Salzenberg <chip@pobox.com>: logdie()
+           and logwarn() are now compliant with the warn() and die() 
+           standard which suppresses the "at file line x" message if
+           the message ends with a "\n".
+    * (ms) New interface for custom config parsers. 
+           Log::Log4perl::Config::BaseConfigurator now provides a base class
+           for new config parsers. Init can now be called like
+           Log::Log4perl->init($parser) with a parser object, which is
+           derived from Log::Log4perl::Config::BaseConfigurator and 
+           provides a parse() method (no arguments). The file (or whatever)
+           to be parsed can be set by calling $parser->text(\@lines) or 
+           $parser->file($name) before calling L4p->init($parser).
+           The Property, DOM and LDAP configurators have been
+           adapted, check their implementation for details.
+    * (ms) Added integrity check for Log4perl configurations: Log4perl
+           now issues a warning if a configuration doesn't define any
+           appenders. Should anyone not like this, it can be turned
+           off by setting $L4p::Config::CONFIG_INTEGRITY_CHECK = 0
+           before calling init().
+    * (ms) Fixed bug reported by Johannes Kilian <jok@vitronic.com>
+           with __DIE__ handler and "PatternLayout" shortcut. Replaced
+           'eval { require ... }' by L4p::Util::module_available in
+           L4p::Config.pm.
+    * (ms) Did away with $IS_LOADED internal variable.
+    * (ms) Fixed bug with L4p::INITIALIZED vs. L4P::Logger::INITIALIZED,
+           added t/020Easy2.t.
+    * (ms) Added adm/cvskwexp script to check if we're running into CVS
+           trouble because of <dollar>Log keyword expansion.
+
 0.47 (07/11/2004)
     * (ms) Added suggestion by Hutton Davidson <Davidson.Hutton@ftid.com>
            to make the socket appender more forgiving. New option

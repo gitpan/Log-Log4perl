@@ -49,10 +49,9 @@ sub new {
         if(!scalar(keys %{"$appenderclass\::"})) {
             # Not available yet, try to pull it in.
             # see 'perldoc -f require' for why two evals
-            eval "require $appenderclass"
-                 unless ${$appenderclass.'::IS_LOADED'};  #for unit tests, 
+            eval "require $appenderclass";
+                 #unless ${$appenderclass.'::IS_LOADED'};  #for unit tests, 
                                                           #see 004Config
-                 ;
             die $@ if $@;
         }
     };
@@ -260,9 +259,8 @@ sub AUTOLOAD {
 ##################################################
 sub DESTROY {
 ##################################################
-    warn "Destroying appender $_[0]" if $Log::Log4perl::CHATTY_DESTROY_METHODS;
-
     foreach my $key (keys %{$_[0]}) {
+        # print "deleting $key\n";
         delete $_[0]->{$key};
     }
 }
