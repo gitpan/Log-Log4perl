@@ -12,7 +12,9 @@ use Log::Log4perl::Config;
 use Log::Dispatch::Screen;
 use Log::Log4perl::Appender;
 
-our $VERSION = '0.24';
+use constant DEBUG => 1;
+
+our $VERSION = '0.25';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -25,17 +27,19 @@ sub import {
 
     no strict qw(refs);
 
+    my $caller_pkg = caller();
+
     my(%tags) = map { $_ => 1 } @_;
 
         # Lazy man's logger
     if(exists $tags{':easy'}) {
         $tags{':levels'} = 1;
+        $tags{':nowarn'} = 1;
         $tags{'get_logger'} = 1;
     }
 
     if(exists $tags{get_logger}) {
         # Export get_logger into the calling module's 
-        my $caller_pkg = caller();
 
         *{"$caller_pkg\::get_logger"} = *get_logger;
 
@@ -61,6 +65,27 @@ sub import {
         # Lazy man's logger
     if(exists $tags{':easy'}) {
         delete $tags{':easy'};
+
+            # Define default logger object in caller's package
+        my $logger = get_logger("$caller_pkg");
+        my $string = "\$${caller_pkg}::_default_logger = \$logger";
+        eval $string or die "$@";
+
+            # Define DEBUG, INFO, etc. routines in caller's package
+        for(qw(DEBUG INFO WARN ERROR FATAL)) {
+            my $level   = $_;
+            my $lclevel = lc($_);
+            *{"$caller_pkg\::$_"} = sub { 
+                Log::Log4perl::Logger::init_warn() unless 
+                               $Log::Log4perl::Logger::INITIALIZED;
+                $logger->{$level}->($logger, @_, $level);
+            };
+        }
+    }
+
+    if(exists $tags{':nowarn'}) {
+        $Log::Log4perl::Logger::INITIALIZED = 1;
+        delete $tags{':nowarn'};
     }
 
     if(keys %tags) {
@@ -961,6 +986,62 @@ choice. Think about the people taking over your code one day: The
 class hierarchy is probably what they know right up front, so it's easy
 for them to tune the logging to their needs.
 
+=head2 Pitfalls with Categories
+
+Be careful with just blindly reusing the system's packages as
+categories. If you do, you'll get into trouble with inherited methods.
+Imagine the following class setup:
+
+    use Log::Log4perl;
+
+    ###########################################
+    package Bar;
+    ###########################################
+    sub new {
+        my($class) = @_;
+        my $logger = Log::Log4perl::get_logger(__PACKAGE__);
+        $logger->debug("Creating instance");
+        bless {}, $class;
+    }
+    ###########################################
+    package Bar::Twix;
+    ###########################################
+    our @ISA = qw(Bar);
+
+    ###########################################
+    package main;
+    ###########################################
+    Log::Log4perl->init(\ qq{
+    log4perl.category.Bar.Twix = DEBUG, Screen
+    log4perl.appender.Screen = Log::Dispatch::Screen
+    log4perl.appender.Screen.layout = SimpleLayout
+    });
+
+    my $bar = Bar::Twix->new();
+
+C<Bar::Twix> just inherits everything from C<Bar>, including the constructor
+C<new()>.
+Contrary to what you might be thinking at first, this won't log anything. 
+Reason for this is the C<get_logger()> call in package C<Bar>, which
+will always get a logger of the C<Bar> category, even if we call C<new()> via
+the C<Bar::Twix> package, which will make perl go up the inheritance 
+tree to actually execute C<Bar::new()>. Since we've only defined logging
+behaviour for C<Bar::Twix> in the configuration file, nothing will happen.
+
+This can be fixed by changing the C<get_logger()> method in C<Bar::new()>
+to obtain a logger of the category matching the
+I<actual> class of the object, like in
+
+        # ... in Bar::new() ...
+    my $logger = Log::Log4perl::get_logger($class);
+
+This way, you'll make sure the logger logs appropriately, 
+no matter if the method is inherited or called directly.
+C<new()> always gets the
+real class name as an argument and all other methods can determine it 
+via C<ref($self)>), so it shouldn't be a problem to get the right class
+every time.
+
 =head1 Cool Tricks
 
 =head2 Shortcuts
@@ -1073,6 +1154,18 @@ These levels can also be used in your
 config file, but note that your config file probably won't be
 portable to another log4perl or log4j environment unless you've
 made the appropriate mods there too.
+
+=head2 System-wide log levels
+
+As a fairly drastic measure to decrease (or increase) the logging level
+all over the system with one single configuration option, use the C<threshold>
+keyword in the Log4perl configuration file:
+
+    log4perl.threshold = ERROR
+
+sets the system-wide (or hierarchy-wide according to the log4j documentation)
+to ERROR and therefore deprives every logger in the system of the right 
+to log lower-prio messages.
 
 =head2 Easy Mode
 
@@ -1200,6 +1293,15 @@ Manual installation works as usual with
     make test
     make install
 
+If you're running Windows, and you're too lazy to rummage through all of 
+Log-Log4perl's dependencies, don't despair: We're providing a PPM package
+which installs easily with your Activestate Perl. Just type
+
+    ppm install "http://log4perl.sourceforge.net/ppm/Log-Log4perl.ppd"
+
+on the command line and Log4perl including all dependencies will be 
+installed automatically on your system.
+
 =head1 DEVELOPMENT
 
 C<Log::Log4perl> is under heavy development. The latest CVS tarball
@@ -1256,6 +1358,7 @@ our log4perl development mailing list:
     Log::Log4perl Contributors:
     Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
     Erik Selberg <erik@selberg.com>
+    Aaron Straup Cope <asc@vineyard.net>
 
 =head1 COPYRIGHT AND LICENSE
 

@@ -34,8 +34,11 @@ sub new {
 
         # Pull in the specified Log::Log4perl::Appender object
     eval {
+        no strict 'refs';
         # see 'perldoc -f require' for why two evals
-        eval "require $appenderclass";  
+        eval "require $appenderclass"
+             unless ${$appenderclass.'::IS_LOADED'};  #for unit tests, see 004Config
+             ;
         die $@ if $@;
 
            # Eval erroneously succeeds on unknown appender classes if
@@ -83,7 +86,10 @@ sub threshold { # Set/Get the appender threshold
     print "Setting threshold to $level\n" if DEBUG;
 
     if(defined $level) {
-        $self->{level} = $level;
+        # Checking for \d makes for a faster regex(p)
+        $self->{level} = ($level =~ /^(\d+)$/) ? $level :
+            # Take advantage of &to_priority's error reporting
+            Log::Log4perl::Level::to_priority($level);
     }
 
     return $self->{level};

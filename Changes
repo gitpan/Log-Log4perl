@@ -2,6 +2,17 @@
 Revision history for Log::Log4perl
 ##################################################
 
+0.25 10/06/2002
+    * (ms) backwards-compatibility with perl 5.00503
+    * (ms) added system-wide threshold, fixed java-app thresholds
+    * (kg) Nested configuration structures for appenders like L::D::Jabber
+    * (ms) ::Log4perl::Appender::threshold() accepts strings or integer
+           levels (as submitted by Aaron Straup Cope <asc@vineyard.net>)
+    * (ms) Fixed logdie/logwarn caller(x) offset bug reported by 
+           Brian Duffy <Brian.Duffy@DFA.STATE.NY.US>
+    * (ms) dies now on PatternLayout without ConversionPattern (helps detecting
+           typos in conf files)
+
 0.24 09/26/2002
     * (kg) Fix for init_and_watch and test cases
     * (ms) Added documentation for Log::Log4perl::Config
@@ -211,11 +222,8 @@ Revision history for Log::Log4perl
 
 TODO (not assigned to anybody yet):
 ##################################################
-    * Make Log::Log4perl::Layout:: optional and accept just "PatternLayout"
     * BasicConfigurator() vs. :easy, PropertyConfigurator()
-    * Log/throw exception (either warn/die or real exceptions)
     * get_logger() thread safety (two try to create it at the same time)
-    * hierarchy-wide threshold (p.14), log4j.threshold = ERROR
     * Object rendering
     * NDC/MDC
     * Internal DEBUG for log4perl (log4perl.debug = 1)
@@ -267,7 +275,6 @@ TODO Mike:
       >   }
       What's happening if the reload happens right after the level() call 
       and the config file sets the level to WARN?
-    * Documentation of Log::Log4perl::Logger and Log::Log4perl::Config
     * Layout.pm: 't', 'x', 'X'
     * README tests (Pod::Tests or something)
     * Thread safety

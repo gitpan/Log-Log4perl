@@ -87,6 +87,7 @@ sub _init {
     my $data = config_read($config);
     
     my @loggers = ();
+    my $system_wide_threshold;
 
         # Find all logger definitions in the conf file. Start
         # with root loggers.
@@ -94,6 +95,12 @@ sub _init {
         push @loggers, ["", $data->{rootLogger}->{value}];
     }
         
+        # Check if we've got a system-wide threshold setting
+    if(exists $data->{threshold}) {
+            # yes, we do.
+        $system_wide_threshold = $data->{threshold}->{value};
+    }
+
         # Continue with lower level loggers. Both 'logger' and 'category'
         # are valid keywords. Also 'additivity' is one, having a logger
         # attached. We'll differenciate between the two further down.
@@ -143,6 +150,8 @@ sub _init {
                                                      \%appenders_created);
             my $appender;
 
+            print "appenderclass=$appenderclass\n" if DEBUG;
+
             if (ref $appenderclass) {
 
                 $appender = $appenderclass;
@@ -150,7 +159,8 @@ sub _init {
 
             }else{
 
-                die "ERROR: you didn't tell me how to implement your appender '$appname'"
+                die "ERROR: you didn't tell me how to " .
+                    "implement your appender '$appname'"
                         unless $appenderclass;
 
                 if($appenderclass =~ /::/) {
@@ -159,26 +169,66 @@ sub _init {
                                         $_ ne "value"
                                       } keys %{$data->{appender}->{$appname}};
 
+                    my %param = ();
+                    foreach my $pname (@params){
+                        #this could be simple value like 
+                        #{appender}{myAppender}{file}{value} => 'log.txt'
+                        #or a structure like
+                        #{appender}{myAppender}{login} => 
+                        #                         { name => {value => 'bob'},
+                        #                           pwd  => {value => 'xxx'},
+                        #                         }
+                        #in the latter case we send a hashref to the appender
+                        if (exists $data->{appender}{$appname}
+                                          {$pname}{value}      ) {
+                            $param{$pname} = $data->{appender}{$appname}
+                                                    {$pname}{value};
+                        }else{
+                            $param{$pname} = {map {$_ => $data->{appender}
+                                                                {$appname}
+                                                                {$pname}
+                                                                {$_}
+                                                                {value}} 
+                                             keys %{$data->{appender}
+                                                           {$appname}
+                                                           {$pname}}
+                                             };
+                        }
+
+                    }
+
                     $appender = Log::Log4perl::Appender->new(
                         $appenderclass, 
                         name => $appname,
-                        map { $_ => $data->{appender}->{$appname}->{$_}->{value} 
-                            } @params,
+                        %param,
                     ); 
-                    my $threshold = 
-                       $data->{appender}->{$appname}->{Threshold}->{value};
-                    if(defined $threshold) {
-                            # Need to split into two lines because of CVS
-                        $appender->threshold($
-                            Log::Log4perl::Level::PRIORITY{$threshold});
-                    }
                     add_layout_by_name($data, $appender, $appname);
+
                 } else {
                     # It's Java. Try to map
+                    print "Trying to map Java $appname\n" if DEBUG;
                     $appender = Log::Log4perl::JavaMap::get($appname, 
                                                 $data->{appender}->{$appname});
                     add_layout_by_name($data, $appender, $appname);
                 }
+            }
+
+                # Check for appender thresholds
+            my $threshold = 
+               $data->{appender}->{$appname}->{Threshold}->{value};
+            if(defined $threshold) {
+                    # Need to split into two lines because of CVS
+                $appender->threshold($
+                    Log::Log4perl::Level::PRIORITY{$threshold});
+            }
+
+            if($system_wide_threshold) {
+                $appender->threshold($
+                    Log::Log4perl::Level::PRIORITY{$system_wide_threshold});
+            }
+
+            if($data->{appender}->{$appname}->{threshold}) {
+                    die "threshold keyword needs to be uppercase";
             }
 
             $logger->add_appender($appender, 'dont_reset_all');
@@ -299,12 +349,31 @@ sub config_read {
         if(my($key, $val) = /(\S+?)\s*=\s*(.*)/) {
             $val =~ s/\s+$//;
             $key = unlog4j($key);
+            my $how_deep = 0;
             my $ptr = $data;
             for my $part (split /\.|::/, $key) {
                 $ptr->{$part} = {} unless exists $ptr->{$part};
                 $ptr = $ptr->{$part};
+                ++$how_deep;
             }
-            $ptr->{value} = $val;
+
+            #here's where we deal with turning multiple values like this:
+            # log4j.appender.jabbender.to = him@a.jabber.server
+            # log4j.appender.jabbender.to = her@a.jabber.server
+            #into an arrayref like this:
+            #to => { value => 
+            #       ["him\@a.jabber.server", "her\@a.jabber.server"] },
+            if (exists $ptr->{value} && $how_deep > 2) {
+                if (ref ($ptr->{value}) ne 'ARRAY') {
+                    my $temp = $ptr->{value};
+                    $ptr->{value} = [];
+                    push (@{$ptr->{value}}, $temp);
+                }
+                print ref $ptr->{value},"\n";
+                push (@{$ptr->{value}}, $val);
+            }else{
+                $ptr->{value} = $val;
+            }
         }
     }
 

@@ -11,7 +11,6 @@ use Log::Log4perl::Layout;
 use Log::Log4perl::Appender;
 use Log::Dispatch;
 use Carp;
-use Carp::Heavy;
 
 use constant DEBUG => 0;
 
@@ -488,7 +487,7 @@ sub log {
 
     my $which = Log::Log4perl::Level::to_level($priority);
 
-    $self->{$which}($self, @messages, 
+    $self->{$which}->($self, @messages, 
                     Log::Log4perl::Level::to_level($priority));
 }
 
@@ -578,7 +577,7 @@ sub create_log_level_methods {
   *{__PACKAGE__ . "::$lclevel"} = sub {
         print "$lclevel: ($_[0]->{category}/$_[0]->{level}) [@_]\n" if DEBUG;
         init_warn() unless $INITIALIZED;
-        $_[0]->{$level}(@_, $level);
+        $_[0]->{$level}->(@_, $level);
      };
 
   *{__PACKAGE__ . "::is_$lclevel"} = sub { 
@@ -686,7 +685,10 @@ sub and_die {
 sub logwarn {
   my $self = shift;
   if ($self->is_warn()) {
+        # Since we're one caller level off now, compensate for that.
+    $Log::Log4perl::caller_depth++;
     $self->warn(@_);
+    $Log::Log4perl::caller_depth--;
     $self->and_warn(@_);
   }
 }
@@ -694,7 +696,10 @@ sub logwarn {
 sub logdie {
   my $self = shift;
   if ($self->is_fatal()) {
+        # Since we're one caller level off now, compensate for that.
+    $Log::Log4perl::caller_depth++;
     $self->fatal(@_);
+    $Log::Log4perl::caller_depth--;
   }
   # no matter what, we die... 'cuz logdie wants you to die.
   $self->and_die(@_);
