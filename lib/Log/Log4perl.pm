@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '0.50';
+our $VERSION = '0.51';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -374,6 +374,14 @@ sub appender_by_name {  # Get an appender by name
     } else {
         return undef;
     }
+}
+
+##################################################
+sub eradicate_appender {  # Remove an appender from the system
+##################################################
+        # If someone calls L4p->... and not L4p::...
+    shift if $_[0] eq __PACKAGE__;
+    Log::Log4perl::Logger->eradicate_appender(@_);
 }
 
 ##################################################
@@ -2012,7 +2020,20 @@ and the script will run nevertheless (but of course without logging):
     # ...
     ###l4p INFO "Really!";
 
-because everything's a regular comment now.
+because everything's a regular comment now. Alternatively, put the
+magic Log::Log4perl comment resurrection line into your shell's 
+PERL5OPT environment variable, e.g. for bash:
+
+    set PERL5OPT=-MLog::Log4perl=:resurrect,:easy
+    export PERL5OPT
+
+This will awaken the giant within an otherwise silent script like
+the following:
+
+    #!/usr/bin/perl
+
+    ###l4p Log::Log4perl->easy_init($DEBUG);
+    ###l4p DEBUG "It works!";
 
 =head2 Access defined appenders
 
@@ -2135,6 +2156,19 @@ the layout to the appender using the appender's C<layout()> object:
         # ... and you're good to go!
     $logger->debug("Blah");
         # => "2002/07/10 23:55:35 (test.pl:207)> Blah\n"
+
+It's also possible to remove appenders from a logger:
+
+    $logger->remove_appender($appender_name);
+
+will remove an appender, specified by name, from a given logger. 
+Please note that this does
+I<not> remove an appender from the system.
+
+To eradicate an appender from the system, 
+you need to call C<Log::Log4perl-E<gt>eradicate_appender($appender_name)>
+which will first remove the appender from every logger in the system
+and then will delete all references Log4perl holds to it.
 
 =head1 How about Log::Dispatch::Config?
 

@@ -7,12 +7,13 @@
 
 use warnings;
 use strict;
+use Log::Log4perl::Appender::TestBuffer;
 
 #########################
 # change 'tests => 1' to 'tests => last_test_to_print';
 #########################
 use Test;
-BEGIN { plan tests => 13 };
+BEGIN { plan tests => 16 };
 
 use Log::Log4perl qw(get_logger :levels);
 
@@ -27,7 +28,8 @@ ok(Log::Log4perl::Level::isGreaterOrEqual($ERROR, $FATAL));
 # Init logger
 ##################################################
 my $app = Log::Log4perl::Appender->new(
-    "Log::Log4perl::Appender::TestBuffer");
+    "Log::Log4perl::Appender::TestBuffer",
+    name => "A1");
 my $logger = get_logger("abc.def");
 $logger->add_appender($app);
 $logger->level($DEBUG);
@@ -103,3 +105,30 @@ $log8->debug("Is this it?");
 ok($app->buffer(), "DEBUG - Is this it?\n");
 $app->buffer("");
 
+##################################################
+# Remove appender
+##################################################
+$logger->remove_appender("A1");
+$logger_main->remove_appender("A1");
+$log8->debug("Is this it?");
+
+$app = Log::Log4perl->appenders()->{"A1"};
+
+ok($app->buffer(), "");
+$app->buffer("");
+
+##################################################
+# Eradicate appender
+##################################################
+$Log::Log4perl::Appender::TestBuffer::DESTROY_MESSAGE = "";
+Log::Log4perl->eradicate_appender("A1");
+ok($Log::Log4perl::Appender::TestBuffer::DESTROY_MESSAGE, "", 
+   "destroy message before");
+
+undef $app;
+   # Special for TestBuffer: remove circ ref
+delete ${Log::Log4perl::Appender::TestBuffer::POPULATION}{A1};
+
+ok($Log::Log4perl::Appender::TestBuffer::DESTROY_MESSAGES, 
+   "Log::Log4perl::Appender::TestBuffer destroyed", 
+   "destroy message after destruction");

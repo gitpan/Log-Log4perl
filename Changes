@@ -2,6 +2,22 @@
  Revision history for Log::Log4perl
 ##################################################
 
+0.51 (01/08/2005)
+    * (ms) Jon Bjornstad noticed that the file appender wasn't including
+           $! in the die() exception thrown if open_file() fails. Added it.
+    * (ms) Added umask option to file appender
+    * (ms) Fix to L4p::Util::module::available() for Win32
+           compliance by Roger Yager <roger.yager@eyestreet.com>
+    * (ms) Added check to L4p::Util::module_available() returning true
+           if the pm file is available in %INC, indicating that it has
+           already been loaded. This fixes a problem when running L4p
+           in a PAR binary.
+    * (ms) Added remove_appender() and eradicate_appender() method to 
+           Logger.pm, test cases and documentation on the main Log4perl 
+           page.
+    * (ms) Added a generic buffered composite appender, L4p::Appender::Buffer,
+           buffering messages until a trigger condition is met.
+
 0.50 (12/08/2004)
     * (ms) Added ':resurrect' source filter, which uncomments all lines
            starting with "###l4p". Can be used for hidden L4p statements,
