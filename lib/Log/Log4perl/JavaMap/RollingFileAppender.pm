@@ -2,7 +2,7 @@ package Log::Log4perl::JavaMap::RollingFileAppender;
 
 use Carp;
 use strict;
-use Log::Dispatch::FileRotate;
+use Log::Dispatch::FileRotate 1.10;
 
 
 sub new {

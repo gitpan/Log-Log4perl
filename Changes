@@ -2,6 +2,15 @@
 Revision history for Log::Log4perl
 ##################################################
 
+0.35 06/21/2003
+    * (kg) got rid of warnings during make test in 014ConfErrs.t
+           added user-defined hooks to JavaMap
+    * Jim Cromie <jcromie@divsol.com> provided a patch to get
+      rid of deprechated our-if syntax in Level.pm
+    * (ms) removed test case for RollingFileAppender because of recent
+      instability. Added dependency for Log::Dispatch::RollingFile 1.10
+      in Log/Log4perl/JavaMap/RollingFileAppender.pm.
+
 0.34 06/08/2003
     * (ms) James FitzGibbon <james.fitzgibbon@target.com> noticed a major
            bug in Log::Log4perl::Appender::File and provided a patch. Problem
