@@ -1,0 +1,10 @@
+blib
+Makefile
+^modules
+^Log4perl.pm
+CVS
+^t/bak
+^t/tmp/
+.cvsignore
+lib/Log/Dispatch/Buffer.pm
+docs
