@@ -14,7 +14,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '0.44';
+our $VERSION = '0.45';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -1160,12 +1160,15 @@ that it will leave a potentially existing configuration alone and
 will only call C<init()> if Log::Log4perl hasn't been initialized yet.
 
 If you're just curious if Log::Log4perl has been initialized yet, the
+check
 
     if(Log::Log4perl->initialized()) {
-        # Not initialized yet ...
+        # Yes, Log::Log4perl has already been initialized
+    } else {
+        # No, not initialized yet ...
     }
 
-check can be used.
+can be used.
 
 If you're afraid that the components of your system are stepping on 
 each other's toes or if you are thinking that different components should
@@ -2148,8 +2151,10 @@ our
     Contributors:
     Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
     James FitzGibbon <james.fitzgibbon@target.com>
+    Dennis Gregorovic <dgregor@redhat.com>
     Paul Harrington <Paul-Harrington@deshaw.com>
     David Hull <hull@paracel.com>
+    Jeff Macdonald <jeff.macdonald@e-dialog.com>
     Markus Peter <warp@spin.de>
     Brett Rann <brettrann@mail.com>
     Erik Selberg <erik@selberg.com>

@@ -167,7 +167,7 @@ Then, just tell it to install Log::Log4perl and it will resolve all
 dependencies automatically and fetch them from log4perl.sourceforge.net
 if it can't find them in the main archives:
 
-    ppm> install Log::Log4perl
+    ppm> install Log-Log4perl
 
 =back
 
@@ -1623,6 +1623,72 @@ required, a C<__DIE__> handler is appropriate:
 This will call Log4perl's C<LOGDIE()> function, which will log a fatal
 error and then call die() internally, causing the program to exit. Works
 equally well with C<Carp>'s C<croak()> and C<confess()> functions.
+
+=head2 Some module prints messages to STDERR. How can I funnel them to Log::Log4perl?
+
+If a module you're using doesn't use Log::Log4perl but prints logging
+messages to STDERR instead, like
+
+    ########################################
+    package IgnorantModule;
+    ########################################
+
+    sub some_method {
+        print STDERR "Parbleu! An error!\n";
+    }
+
+    1;
+
+there's still a way to capture these messages and funnel them 
+into Log::Log4perl, even without touching the module. What you need is
+a trapper module like
+
+    ########################################
+    package Trapper;
+    ########################################
+    
+    use Log::Log4perl qw(:easy);
+    
+    sub TIEHANDLE {
+        my $class = shift;
+        bless [], $class;
+    }
+    
+    sub PRINT {
+        my $self = shift;
+        $Log::Log4perl::caller_depth++;
+        DEBUG @_;
+        $Log::Log4perl::caller_depth--;
+    }
+
+and a C<tie> command in the main program to tie STDERR to the trapper
+module along with regular Log::Log4perl initialization:
+
+    ########################################
+    package main;
+    ########################################
+
+    use Log::Log4perl qw(:easy);
+
+    Log::Log4perl->easy_init(
+        {level  => $DEBUG, 
+         file   => 'stdout',   # make sure not to use stderr here!
+         layout => "%d %M: %m%n",
+        });
+
+    tie *STDERR, Trapper;
+    
+Make sure not to use STDERR as Log::Log4perl's file appender
+here (which would be the default in C<:easy> mode), because it would 
+end up in an endless recursion.
+    
+Now, calling
+
+    IgnorantModule::some_method();
+
+will result in the desired output
+
+    2004/05/06 11:13:04 IgnorantModule::some_method: Parbleu! An error!
 
 =cut
 
