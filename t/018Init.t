@@ -8,6 +8,14 @@ use strict;
 use Log::Log4perl;
 use File::Spec;
 
+my $WORK_DIR = "tmp";
+if(-d "t") {
+    $WORK_DIR = File::Spec->catfile(qw(t tmp));
+}
+unless (-e "$WORK_DIR"){
+    mkdir("$WORK_DIR", 0755) || die "can't create $WORK_DIR ($!)";
+}
+
 my $testfilea = File::Spec->catfile(qw(t tmp test18a.log));
 unlink $testfilea if (-e $testfilea);
 
@@ -24,7 +32,7 @@ END { unlink $testfilea;
 ####################################################
 my $data = <<EOT;
 log4j.category = INFO, FileAppndr
-log4j.appender.FileAppndr          = Log::Dispatch::File
+log4j.appender.FileAppndr          = Log::Log4perl::Appender::File
 log4j.appender.FileAppndr.filename = $testfilea
 log4j.appender.FileAppndr.layout   = Log::Log4perl::Layout::SimpleLayout
 EOT
@@ -36,7 +44,7 @@ $log->info("Shu-wa-chi!");
 
 $data = <<EOT;
 log4j.category = INFO, FileAppndr
-log4j.appender.FileAppndr          = Log::Dispatch::File
+log4j.appender.FileAppndr          = Log::Log4perl::Appender::File
 log4j.appender.FileAppndr.filename = $testfileb
 log4j.appender.FileAppndr.layout   = Log::Log4perl::Layout::SimpleLayout
 EOT

@@ -3,11 +3,28 @@
 
 
 use Log::Log4perl;
-use Test;
+use Test::More;
 use File::Spec;
 
+our $LOG_DISPATCH_PRESENT = 0;
 
-BEGIN { plan tests => 3, }
+BEGIN { 
+    eval { require Log::Dispatch; };
+    if($@) {
+       plan skip_all => "only with Log::Dispatch";
+    } else {
+       $LOG_DISPATCH_PRESENT = 1;
+       plan tests => 3;
+    }
+};
+
+my $WORK_DIR = "tmp";
+if(-d "t") {
+    $WORK_DIR = File::Spec->catfile(qw(t tmp));
+}
+unless (-e "$WORK_DIR"){
+    mkdir("$WORK_DIR", 0755) || die "can't create $WORK_DIR ($!)";
+}
 
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
 my $today = sprintf("%4.4d%2.2d%2.2d",$year+1900, $mon+1, $mday);
@@ -111,7 +128,7 @@ my ($result, $expected);
  $result =~ s/.+?] //g;
 }
 
-ok ($result, $expected);
+is ($result, $expected);
 
 
 # ------------------------------------
@@ -144,7 +161,7 @@ foreach my $l ($la, $lab, $labc, $labcd, $labcde){
  $result =~ s/.+?] //g;
 }
 
-ok($result, $expected);
+is($result, $expected);
 
 
 # ------------------------------------
@@ -177,7 +194,7 @@ foreach my $l ($xla, $xlab, $xlabc, $xlabcd, $xlabcde){
  $result =~ s/.+?] //g;
 }
 
-ok($result, $expected);
+is($result, $expected);
 
 
    

@@ -1,14 +1,30 @@
 use Log::Log4perl;
-use Test;
+use Test::More;
 use File::Spec;
 
-my $WORK_DIR = File::Spec->catfile(qw(t tmp));
+our $LOG_DISPATCH_PRESENT = 0;
+
+BEGIN { 
+    eval { require Log::Dispatch; };
+    if($@) {
+       plan skip_all => "only with Log::Dispatch";
+    } else {
+       $LOG_DISPATCH_PRESENT = 1;
+       plan tests => 1;
+    }
+};
+
+my $WORK_DIR = "tmp";
+if(-d "t") {
+    $WORK_DIR = File::Spec->catfile(qw(t tmp));
+}
+unless (-e "$WORK_DIR"){
+    mkdir("$WORK_DIR", 0755) || die "can't create $WORK_DIR ($!)";
+}
+
 use vars qw(@outfiles $test_logfile); 
 $test_logfile = File::Spec->catfile($WORK_DIR, 'test2.log');
 @outfiles = ($test_logfile);
-unless (-e "$WORK_DIR"){
-    mkdir("$WORK_DIR", 0755) || die "can't create $WORK_DIR $!";
-}
 foreach my $f (@outfiles){
     unlink $f if (-e $f);
 }
@@ -46,13 +62,7 @@ EOL
  $result = <F>;
  close F;
 }
-ok ($result, $expected);
-
-
-
-BEGIN { plan tests => 1, }
-
-
+is ($result, $expected);
 
 foreach my $f (@outfiles){
     unlink $f if (-e $f);

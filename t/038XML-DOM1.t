@@ -1,5 +1,5 @@
 
-use Test;
+use Test::More;
 use Log::Log4perl;
 use strict;
 use Data::Dumper;
@@ -8,13 +8,14 @@ use File::Spec;
 our $no_XMLDOM;
 
 BEGIN {
+    my $dvrq = $Log::Log4perl::DOM_VERSION_REQUIRED;
+
     eval {
         require XML::DOM;
+        XML::DOM->VERSION($dvrq);
     };
     if ($@) {
-        print STDERR "XML::DOM not installed, skipping tests\n";
-        $no_XMLDOM = 1;
-        plan tests => 1;
+        plan skip_all => "only with XML::DOM > $dvrq";
     }else{
         plan tests => 1;
     }
