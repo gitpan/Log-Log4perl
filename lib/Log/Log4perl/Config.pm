@@ -8,6 +8,7 @@ use warnings;
 
 use Log::Log4perl::Logger;
 use Log::Log4perl::Level;
+use Log::Log4perl::Config::PropertyConfigurator;
 use Log::Dispatch;
 use Log::Dispatch::File;
 use Log::Log4perl::JavaMap;
@@ -49,7 +50,9 @@ sub init_and_watch {
     $delay =~ /\D/ && die "illegal non-numerica value for delay: $delay";
 
     if (ref $config) {
-        die "can only watch a file, not a string of configuration information";
+        die "Log4perl can only watch a file, not a string of configuration information";
+    }elsif ($config =~ m!^(https?|ftp|wais|gopher|file):!){
+        die "Log4perl can only watch a file, not a url like $config";
     }
 
     Log::Log4perl::Logger::init_watch($delay);
@@ -330,6 +333,13 @@ sub add_global_cspec {
     Log::Log4perl::Layout::PatternLayout::add_global_cspec($letter, $perlcode);
 }
 
+my $LWP_USER_AGENT;
+sub set_LWP_UserAgent
+{
+    $LWP_USER_AGENT = shift;
+}
+
+
 ###########################################
 sub config_read {
 ###########################################
@@ -340,64 +350,66 @@ sub config_read {
 
     my @text;
 
+    my $data = {};
+
     if (ref($config) eq 'HASH') {   # convert the hashref into a list 
                                     # of name/value pairs
         @text = map { $_ . '=' . $config->{$_} } keys %{$config};
+
     } elsif (ref $config) {
         @text = split(/\n/,$$config);
-    }else{
-        Log::Log4perl::Logger::set_file_to_watch($config);
-        open FILE, "<$config" or die "Cannot open config file '$config'";
-        @text = <FILE>;
-        close FILE;
-    }
 
+    #TBD
+    #}elsif ($config =~ m|^ldap://|){
+    #   return Log::Log4perl::Config::LDAPConfigurator($config);
+
+    }else{
+
+        if ($config =~ /^(https?|ftp|wais|gopher|file):/){
+            my ($result, $ua);
+    
+            eval {
+                require LWP::UserAgent;
+                unless (defined $LWP_USER_AGENT) {
+                    $LWP_USER_AGENT = LWP::UserAgent->new;
+    
+                    # Load proxy settings from environment variables, i.e.:
+                    # http_proxy, ftp_proxy, no_proxy etc (see LWP::UserAgent)
+                    # You need these to go thru firewalls.
+                    $LWP_USER_AGENT->env_proxy;
+                }
+                $ua = $LWP_USER_AGENT;
+            };
+
+            $@ && die "Log4perl cannot load $config, \n".
+                        "reason: LWP::UserAgent didn't load\nerror: $@";
+
+            my $req = new HTTP::Request GET => $config;
+            my $res = $ua->request($req);
+
+            if ($res->is_success) {
+                @text = split(/\n/, $res->content);
+            } else {
+                die "Log4perl couln't get $config, ".
+                     $res->message." ";
+            }
+        }else{
+            Log::Log4perl::Logger::set_file_to_watch($config);
+            open FILE, "<$config" or die "Cannot open config file '$config'";
+            @text = <FILE>;
+            close FILE;
+        }
+    }
+    
     print "Reading $config: [@text]\n" if DEBUG;
 
-    my $data = {};
-
-    while (@text) {
-        $_ = shift @text;
-        s/#.*//;
-        next unless /\S/;
-    
-        while (/(.+?)\\$/) {
-            my $prev = $1;
-            my $next = shift(@text);
-            $next =~ s/^ +//g;  #leading spaces
-            $next =~ s/#.*//;
-            $_ = $prev. $next;
-            chomp;
-        }
-        if(my($key, $val) = /(\S+?)\s*=\s*(.*)/) {
-            $val =~ s/\s+$//;
-            $key = unlog4j($key);
-            my $how_deep = 0;
-            my $ptr = $data;
-            for my $part (split /\.|::/, $key) {
-                $ptr->{$part} = {} unless exists $ptr->{$part};
-                $ptr = $ptr->{$part};
-                ++$how_deep;
-            }
-
-            #here's where we deal with turning multiple values like this:
-            # log4j.appender.jabbender.to = him@a.jabber.server
-            # log4j.appender.jabbender.to = her@a.jabber.server
-            #into an arrayref like this:
-            #to => { value => 
-            #       ["him\@a.jabber.server", "her\@a.jabber.server"] },
-            if (exists $ptr->{value} && $how_deep > 2) {
-                if (ref ($ptr->{value}) ne 'ARRAY') {
-                    my $temp = $ptr->{value};
-                    $ptr->{value} = [];
-                    push (@{$ptr->{value}}, $temp);
-                }
-                print ref $ptr->{value},"\n";
-                push (@{$ptr->{value}}, $val);
-            }else{
-                $ptr->{value} = $val;
-            }
-        }
+    if ($text[0] =~ /^<\?xml /) {
+        eval { require XML::DOM; require Log::Log4perl::Config::DOMConfigurator; };
+        #need to check version of XML::DOM! DEBUG!!!
+        if ($@){die "Log4perl: missing XML::DOM needed to parse xml config files\n$@\n"}
+        $data = Log::Log4perl::Config::DOMConfigurator::parse(\@text);
+    }else{
+        $data = Log::Log4perl::Config::PropertyConfigurator::parse(\@text)
     }
 
     return $data;
@@ -448,6 +460,36 @@ sub leaf_paths {
         }
     }
     return \@result;
+}
+
+###########################################
+sub eval_if_perl {
+###########################################
+    my($value) = @_;
+
+    if(my $cref = compile_if_perl($value)) {
+        return $cref->();
+    }
+
+    return $value;
+}
+
+###########################################
+sub compile_if_perl {
+###########################################
+    my($value) = @_;
+
+    if($value =~ /^\s*sub\s*{/ ) {
+        unless($Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE) {
+            die "\$Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE setting " .
+                "prohibits Perl code in config file";
+        }
+        my $cref = eval "package main; $value" or 
+            die "Can't evaluate '$value' ($@)";
+        return $cref;
+    }
+
+    return undef;
 }
 
 1;
@@ -633,5 +675,13 @@ the log file if it exists.
 =head1 AUTHOR
 
 Mike Schilli, E<lt>log4perl@perlmeister.comE<gt>
+
+=head1 SEE ALSO
+
+Log::Log4perl::Config::PropertyConfigurator
+
+Log::Log4perl::Config::DOMConfigurator
+
+Log::Log4perl::Config::LDAPConfigurator (coming soon!)
 
 =cut

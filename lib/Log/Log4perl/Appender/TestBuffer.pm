@@ -1,9 +1,9 @@
-package Log::Log4perl::TestBuffer;
+package Log::Log4perl::Appender::TestBuffer;
 
 ##################################################
 # Log dispatcher writing to a string buffer
 # For testing.
-# This is like having a Log::Log4perl::TestBuffer
+# This is like having a Log::Log4perl::Appender::TestBuffer
 ##################################################
 
 use Log::Dispatch::Output;
@@ -69,7 +69,11 @@ sub DESTROY {
 
     return unless defined $self;
 
-    delete $POPULATION{$self->name};
+    #this delete() along with &reset() above was causing
+    #Attempt to free unreferenced scalar at 
+    #blib/lib/Log/Log4perl/TestBuffer.pm line 69.
+
+    #delete $POPULATION{$self->name};
 }
 
 ##################################################
@@ -94,13 +98,13 @@ __END__
 
 =head1 NAME
 
-Log::Log4perl::TestBuffer - Appender class for testing
+Log::Log4perl::Appender::TestBuffer - Appender class for testing
 
 =head1 SYNOPSIS
 
-  use Log::Log4perl::TestBuffer;
+  use Log::Log4perl::Appender::TestBuffer;
 
-  my $appender = Log::Dispatch::Screen->new( 
+  my $appender = Log::Log4perl::Appender::TestBuffer->new( 
       name      => 'buffer',
       min_level => 'debug',
       );

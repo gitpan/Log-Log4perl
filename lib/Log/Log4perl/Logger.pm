@@ -35,6 +35,14 @@ sub reset {
     $ROOT_LOGGER        = __PACKAGE__->_new("", $DEBUG);
 #    $LOGGERS_BY_NAME    = {};  #leave this alone, it's used by 
                                 #reset_all_output_methods when the config changes
+
+
+    #we've got a circular reference thing going on somewhere
+    foreach my $appendername (keys %APPENDER_BY_NAME){
+        delete $APPENDER_BY_NAME{$appendername}->{appender} 
+                if (exists $APPENDER_BY_NAME{$appendername} &&
+                    exists $APPENDER_BY_NAME{$appendername}->{appender});
+    }
     %APPENDER_BY_NAME   = ();
     $DISPATCHER         = Log::Dispatch->new();
     undef $INITIALIZED;
@@ -192,8 +200,24 @@ sub generate_coderef {
       my (\$level)   = pop;
       my \$message;
       my \$appenders_fired = 0;
+      
+      # Evaluate all parameters that need to evaluated. Two kinds:
+      #
+      # (1) It's a hash like { filter => "filtername",
+      #                        value  => "value" }
+      #     => filtername(value)
+      #
+      # (2) It's a code ref
+      #     => coderef()
+      #
 
-      \$message = join('', map { ref \$_ eq "CODE" ? \$_->() : defined \$_ ? \$_ : '' } \@_);
+      \$message   = [map { ref \$_ eq "HASH" && 
+                           exists \$_->{filter} && 
+                           ref \$_->{filter} eq 'CODE' ?
+                               \$_->{filter}->(\$_->{value}) :
+                           ref \$_ eq "CODE" ?
+                               \$_->() : \$_ 
+                          } \@_];                  
       
       print("coderef: \$logger->{category}\n") if DEBUG;
 
@@ -202,9 +226,9 @@ sub generate_coderef {
       foreach my \$a (\@\$appenders) {   #note the closure here
           my (\$appender_name, \$appender) = \@\$a;
 
-          print("  Sending message '\$message' (\$level) " .
+          print("  Sending message '<\$message>' (\$level) " .
                 "to \$appender_name\n") if DEBUG;
-
+                
           \$appender->log(
               #these get passed through to Log::Dispatch
               { name    => \$appender_name,
@@ -242,7 +266,6 @@ sub generate_noop_coderef {
         $watch_delay_code = <<EOL;
         my (\$logger)  = shift;
         my (\$level)   = pop;
-        my (\$message) = join '', \@_;
         $watch_delay_code
 EOL
     }
@@ -285,7 +308,7 @@ sub generate_watch_code {
                  Log::Log4perl->init_and_watch($FILE_TO_WATCH, $WATCH_DELAY);
                        
                  my $methodname = lc($level);
-                 $logger->$methodname($message); # send the message
+                 $logger->$methodname(@_); # send the message
                                                  # to the new configuration
                  return;        #and return, we're done with this incarnation
              }

@@ -10,7 +10,7 @@ use strict;
 
 #########################
 # used Test::Simple to help debug the test script
-use Test::Simple tests => 53;
+use Test::More tests => 53;
 
 use Log::Log4perl;
 use Log::Log4perl::Level;
@@ -46,7 +46,7 @@ ok($log7 != $log8, "Log7 not Log8");
 ok($log8 != $log9, "Log8 not Log9");
 
 my $app = Log::Log4perl::Appender->new(
-    "Log::Log4perl::TestBuffer");
+    "Log::Log4perl::Appender::TestBuffer");
 
 ##################################################
 # Suppress debug
@@ -84,9 +84,9 @@ ok($app->buffer() eq "ERROR - Error Message\nDEBUG - Debug Message\n",
 # Multiple Appenders
 ##################################################
 my $app2 = Log::Log4perl::Appender->new(
-    "Log::Log4perl::TestBuffer");
+    "Log::Log4perl::Appender::TestBuffer");
 my $app3 = Log::Log4perl::Appender->new(
-    "Log::Log4perl::TestBuffer");
+    "Log::Log4perl::Appender::TestBuffer");
 
 $app->buffer("");
 $app2->buffer("");
@@ -234,7 +234,8 @@ $log1->warn("7 ", "8 ");
 $log1->error("9 ", "10 ");
 $log1->fatal("11 ", "12 ", "13 ");
 
-ok($app->buffer() eq <<EOT, "app buffer six lines");
+my $got = $app->buffer();
+my $expected = <<EOT;
 DEBUG - 1 2 
 DEBUG - 3 4 
 INFO - 5 6 
@@ -242,6 +243,18 @@ WARN - 7 8
 ERROR - 9 10 
 FATAL - 11 12 13 
 EOT
+
+ok($got eq $expected) || print STDERR "got $got\n expected $expected";
+
+
+#ok($app->buffer() eq <<EOT, "app buffer six lines");
+#DEBUG - 1 2 
+#DEBUG - 3 4 
+#INFO - 5 6 
+#WARN - 7 8 
+#ERROR - 9 10 
+#FATAL - 11 12 13 
+#EOT
 
     ##################################################
     # Check several messages concatenated
@@ -251,11 +264,19 @@ $app->buffer("");
 $log1->level($DEBUG);
 
 $log1->log($DEBUG, sub { "1" . " " . "2" } );
-$log1->info(sub { "3 " . "4 " }, sub { "5 " . "6 " });
+$log1->info(
+    sub { "3 " . "4 " }, # subroutine
+                         # filter (throw out blanks)
+    { filter => sub { my $v = shift;
+                      $v =~ s/\s+//g; 
+                      return $v;
+                    },
+      value  => "  5   6 " },
+    " 7" );
 
-ok($app->buffer() eq <<EOT, "app buffer contains 2 lines");
+is($app->buffer(), <<EOT, "app buffer contains 2 lines");
 DEBUG - 1 2
-INFO - 3 4 5 6 
+INFO - 3 4 56 7
 EOT
 
 # warn("app buffer is: ", $app->buffer(), "\n");

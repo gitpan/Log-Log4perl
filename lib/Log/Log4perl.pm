@@ -14,15 +14,19 @@ use Log::Log4perl::Appender;
 
 use constant DEBUG => 1;
 
-our $VERSION = '0.27';
+our $VERSION = '0.28';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
 our $caller_depth = 0;
 
     #for the security-conscious who don't want people
-    #writing code within the config file
-our $DONT_ALLOW_USER_DEFINED_CSPECS = 0;
+    #writing code within the config file, set this to 0
+our $ALLOW_CODE_IN_CONFIG_FILE = 1;
+
+    #arrays in a log message will be joined using this character,
+    #see Log::Log4perl::Appender::DBI
+our $JOIN_MSG_ARRAY_CHAR = '';
 
 ##################################################
 sub import {
@@ -266,12 +270,12 @@ Log::Log4perl - Log4j implementation for Perl
     $logger->fatal('..');
     
     #####/etc/log4perl.conf###################
-    log4j.category.house              = WARN,  FileAppndr1
-    log4j.category.house.bedroom.desk = DEBUG,  FileAppndr1
+    log4perl.category.house              = WARN,  FileAppndr1
+    log4perl.category.house.bedroom.desk = DEBUG,  FileAppndr1
     
-    log4j.appender.FileAppndr1          = Log::Dispatch::File
-    log4j.appender.FileAppndr1.filename = desk.log 
-    log4j.appender.FileAppndr1.layout   = \
+    log4perl.appender.FileAppndr1          = Log::Dispatch::File
+    log4perl.appender.FileAppndr1.filename = desk.log 
+    log4perl.appender.FileAppndr1.layout   = \
                             Log::Log4perl::Layout::SimpleLayout
     ###########################################
        
@@ -288,12 +292,12 @@ of your system from the outside. It implements the widely popular
 B<For a detailed tutorial on Log::Log4perl usage, please read [1]>.
 
 A WORD OF CAUTION: Log::Log4perl IS STILL UNDER DEVELOPMENT. WE WILL
-ALWAYS MAKE SURE THE TEST SUITE (approx. 300 CASES) WILL PASS, BUT THERE 
+ALWAYS MAKE SURE THE TEST SUITE (approx. 350 CASES) WILL PASS, BUT THERE 
 MIGHT STILL BE BUGS. PLEASE CHECK http://log4perl.sourceforge.net REGULARILY
 FOR THE LATEST RELEASE. THE API HAS REACHED A MATURE STATE, WE WILL 
 NOT CHANGE IT UNLESS FOR A GOOD REASON. 
 
-Logging beats a debugger when you want to know what's going on 
+Logging beats a debugger if you want to know what's going on 
 in your code during runtime. However, traditional logging packages
 are too static and generate a flood of log messages in your log files
 that won't help you.
@@ -355,14 +359,14 @@ C<Log::Log4perl>. Use a configuration file like this:
     # in Perl.
     # Mike Schilli 2002 m@perlmeister.com
     ############################################################
-    log4j.rootLogger=error, LOGFILE
+    log4perl.rootLogger=ERROR, LOGFILE
     
-    log4j.appender.LOGFILE=Log::Dispatch::File
-    log4j.appender.LOGFILE.filename=/var/log/myerrs.log
-    log4j.appender.LOGFILE.mode=append
+    log4perl.appender.LOGFILE=Log::Dispatch::File
+    log4perl.appender.LOGFILE.filename=/var/log/myerrs.log
+    log4perl.appender.LOGFILE.mode=append
     
-    log4j.appender.LOGFILE.layout=org.apache.log4j.PatternLayout
-    log4j.appender.LOGFILE.layout.ConversionPattern=[%r] %F %L %c - %m%n
+    log4perl.appender.LOGFILE.layout=PatternLayout
+    log4perl.appender.LOGFILE.layout.ConversionPattern=[%r] %F %L %c - %m%n
 
 These lines define your standard logger that's appending severe
 errors to C</var/log/myerrs.log>, using the format
@@ -450,7 +454,7 @@ higher prioritized messages to the C</tmp/my.log> logfile:
 
   # Initialize the logger
 
-  use Log::Log4perl;
+  use Log::Log4perl qw(:levels);
   use Log::Dispatch::Screen;
   use Log::Log4perl::Appender;
 
@@ -460,6 +464,7 @@ higher prioritized messages to the C</tmp/my.log> logfile:
   $app->layout($layout);
 
   my $logger = Log::Log4perl->get_logger("My.Component");
+  $logger->level($INFO);
   $logger->add_appender($app);
 
 And after this, we can, again, start logging I<anywhere> in the system
@@ -470,9 +475,9 @@ we just get the logger via the singleton-mechanism):
 
   use Log::Log4perl;
   my $log = Log::Log4perl->get_logger("My::Component");
-  $log->debug("Debug Message");
-  $log->info("Info Message");
-  $log->error("Error Message");
+  $log->debug("Debug Message");  # Suppressed
+  $log->info("Info Message");    # Printed
+  $log->error("Error Message");  # Printed
 
 =head2 Log Levels
 
@@ -631,7 +636,7 @@ via the C<Log::Log4perl::Appender> wrapper:
   my $log = Log::Log4perl->get_logger("My::Category");
 
      # Define a layout
-  my $layout = Log::Log4perl->new("[%r] %F %L %m%n");
+  my $layout = Log::Log4perl::Layout::PatternLayout->new("[%r] %F %L %m%n");
 
      # Define a file appender
   my $file_appender = Log::Log4perl::Appender->new(
@@ -740,8 +745,8 @@ Here's how it works:
     # Turn off logging in a lower-level category while keeping
     # it active in higher-level categories.
     ############################################################
-    log4j.rootLogger=debug, LOGFILE
-    log4j.logger.deep.down.the.hierarchy = error, LOGFILE
+    log4perl.rootLogger=debug, LOGFILE
+    log4perl.logger.deep.down.the.hierarchy = error, LOGFILE
 
     # ... Define appenders ...
 
@@ -753,7 +758,7 @@ even C<debug> messages will be logged.
 =head2 Configuration files
 
 As shown above, you can define C<Log::Log4perl> loggers both from within
-your Perl code or from configuration files. The latter have the unbeatible
+your Perl code or from configuration files. The latter have the unbeatable
 advantage that you can modify your system's logging behaviour without 
 interfering with the code at all. So even if your code is being run by 
 somebody who's totally oblivious to Perl, they still can adapt the
@@ -766,7 +771,7 @@ examples (also derived from [2]), which should also illustrate
 how it works:
 
     log4j.rootLogger=DEBUG, A1
-    log4j.appender.A1=ConsoleAppender
+    log4j.appender.A1=org.apache.log4j.ConsoleAppender
     log4j.appender.A1.layout=org.apache.log4j.PatternLayout
     log4j.appender.A1.layout.ConversionPattern=%-4r [%t] %-5p %c %x - %m%n
 
@@ -778,11 +783,11 @@ corresponding Perl classes, C<Log::Dispatch::Screen> in this case.
 
 Second example:
 
-    log4j.rootLogger=DEBUG, A1
-    log4j.appender.A1=Log::Dispatch::Screen
-    log4j.appender.A1.layout=org.apache.log4j.PatternLayout
-    log4j.appender.A1.layout.ConversionPattern=%d [%t] %-5p %c - %m%n
-    log4j.logger.com.foo=WARN
+    log4perl.rootLogger=DEBUG, A1
+    log4perl.appender.A1=Log::Dispatch::Screen
+    log4perl.appender.A1.layout=PatternLayout
+    log4perl.appender.A1.layout.ConversionPattern=%d [%t] %-5p %c - %m%n
+    log4perl.logger.com.foo=WARN
 
 This defines two loggers: The root logger and the C<com.foo> logger.
 The root logger is easily triggered by debug-messages, 
@@ -860,7 +865,7 @@ replaced by the logging engine when it's time to log the message:
     %P pid of the current process
     %r Number of milliseconds elapsed from program start to logging 
        event
-    %x The topmost NDC (see below)
+    %x The elements of the NDC stack (see below)
     %X{key} The entry 'key' of the MDC (see below)
     %% A literal percent (%) sign
 
@@ -876,25 +881,24 @@ while C<%d{yy, EEEE}> displays a two-digit year, followed by a spelled-out
 (like C<Wednesday>). 
 
 Similar options are available for shrinking the displayed category or
-limit file/path components, C<%f{1}> only displays the source file I<name>
-without any path components while C<%f> logs the full path. %c{2} only
+limit file/path components, C<%F{1}> only displays the source file I<name>
+without any path components while C<%F> logs the full path. %c{2} only
 logs the last two components of the current category, C<Foo::Bar::Baz> 
 becomes C<Bar::Baz> and saves space.
 
 If those placeholders aren't enough, then you can define your own right in
 the config file like this:
 
-    log4j.PatternLayout.cspec.U = sub { return "UID $<" }
+    log4perl.PatternLayout.cspec.U = sub { return "UID $<" }
     
 SECURITY NOTE: this feature means arbitrary perl code can be embedded in the 
 config file.  In the rare case where the people who have access to your config 
 file are different from the people who write your code and shouldn't have 
 execute rights, you might want to set
 
-    $Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS = 1;
+    $Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE = 0;
 
 before you call init().
-
 
 See L<Log::Log4perl::Layout::PatternLayout> for details.
 
@@ -956,7 +960,7 @@ You can save serious time if you're logging something like
 
         # Expensive in non-debug mode!
     for (@super_long_array) {
-        $Logger->debug("Element: $_\n");
+        $logger->debug("Element: $_\n");
     }
 
 and C<@super_long_array> is fairly big, so looping through it is pretty
@@ -966,9 +970,9 @@ actual component is higher than C<debug>.
 In this case, use this instead:
 
         # Cheap in non-debug mode!
-    if($Logger->is_debug()) {
+    if($logger->is_debug()) {
         for (@super_long_array) {
-            $Logger->debug("Element: $_\n");
+            $logger->debug("Element: $_\n");
         }
     }
 
@@ -977,10 +981,27 @@ of the logging function is fairly expensive, use closures:
 
         # Passed as subroutine ref
     use Data::Dumper;
-    $Logger->debug(sub { Dumper($data) } );
+    $logger->debug(sub { Dumper($data) } );
 
 This won't unravel C<$data> via Dumper() unless it's actually needed
-because it's logged.
+because it's logged. 
+
+Also, Log::Log4perl lets you specify arguments
+to logger functions in I<message output filter syntax>:
+
+    $logger->debug("Structure: ",
+                   { filter => \&Dumper,
+                     value  => $someref });
+
+In this way, shortly before Log::Log4perl sending the
+message out to any appenders, it will be searching all arguments for
+hash references and treat them in a special way:
+
+It will invoke the function given as a reference with the C<filter> key
+(C<Data::Dumper::Dumper()>) and pass it the value that came with
+the key named C<value> as an argument.
+The anonymous hash in the call above will be replaced by the return 
+value of the filter function.
 
 =head1 Categories
 
@@ -1183,12 +1204,50 @@ a hash, you can just as well initialized C<Log::Log4perl> with
 a reference to it:
 
     my %key_value_pairs = (
-        "log4j.rootLogger"       => "error, LOGFILE",
-        "log4j.appender.LOGFILE" => "Log::Dispatch::File",
+        "log4perl.rootLogger"       => "error, LOGFILE",
+        "log4perl.appender.LOGFILE" => "Log::Dispatch::File",
         ...
     );
 
     Log::Log4perl->init( \%key_value_pairs );
+
+=head2 Perl Hooks in the Configuration File
+
+If some of the values used in the Log4perl configuration file 
+need to be dynamically modified by the program, use Perl hooks:
+
+    log4perl.appender.File.filename = \
+        sub { return getLogfileName(); }
+
+Each value starting with the string C<sub {...> is interpreted as Perl code to
+be executed at the time the application parses the configuration
+via C<Log::Log4perl::init()>. The return value of the subroutine
+is used by Log::Log4perl as the configuration value.
+
+The Perl code is executed in the C<main> package, functions in
+other packages have to be called in fully-qualified notation.
+
+Here's another example, utilizing an environment variable as a
+username for a DBI appender:
+
+    log4perl.appender.DB.username = \
+        sub { $ENV{DB_USER_NAME } }
+
+However, please note the difference between these code snippets and those
+used for user-defined conversion specifiers as discussed in
+L<Log::Log4perl::PatternLayout>: While the snippets above are run I<once>
+when C<Log::Log4perl::init()> is called, the conversion specifier
+snippets are executed I<each time> a message is rendered according to
+the PatternLayout.
+
+SECURITY NOTE: this feature means arbitrary perl code can be embedded in the 
+config file.  In the rare case where the people who have access to your config 
+file are different from the people who write your code and shouldn't have 
+execute rights, you might want to set
+
+    $Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE = 0;
+
+before you call init().
 
 =head2 Incrementing and Decrementing the Log Levels
 
@@ -1239,7 +1298,7 @@ as such:
 =head2 Custom Log Levels
 
 First off, let me tell you that creating custom levels is heavily
-deprechiated by the log4j folks. Indeed, instead of creating additional
+deprecated by the log4j folks. Indeed, instead of creating additional
 levels on top of the predefined DEBUG, INFO, WARN, ERROR and FATAL, 
 you should use categories to control the amount of logging smartly,
 based on the location of the log-active code in the system.
@@ -1424,34 +1483,52 @@ whatsoever.
 
 If you find that your application could use a global (thread-specific)
 data stack which your loggers throughout the system have easy access to,
-use Nested Diagnostic Contexts (NDCs).
+use Nested Diagnostic Contexts (NDCs). Also check out
+L<"Mapped Diagnostic Context (MDC)">, this might turn out to be even more
+useful.
 
 For example, when handling a request of a web client, it's probably 
 useful to have the user's IP address available in all log statements
 within code dealing with this particular request. Instead of passing
-this piece of data between your application functions, you can just
+this piece of data around between your application functions, you can just
 use the global (but thread-specific) NDC mechanism. It allows you
 to push data pieces (scalars usually) onto its stack via
 
-    Log::Log4perl::NDC->push("data piece");
+    Log::Log4perl::NDC->push("San");
+    Log::Log4perl::NDC->push("Francisco");
 
 and have your loggers retrieve them again via the "%x" placeholder in
-the PatternLayout. The stack mechanism allows for nested structures.
-Just make sure that at the end of the request, you decrease the stack
-by calling
+the PatternLayout. With the stack values above and a PatternLayout format
+like "%x %m%n", the call
+
+    $logger->debug("rocks");
+
+will end up as 
+
+    San Francisco rocks
+
+in the log appender.
+
+The stack mechanism allows for nested structures.
+Just make sure that at the end of the request, you either decrease the stack
+one by one by calling
 
     Log::Log4perl::NDC->pop();
+    Log::Log4perl::NDC->pop();
 
-Even if you should forget to do that, C<Log::Log4perl> won't grow the stack
-indefinitely, but limit it to a maximum, defined in C<Log::Log4perl::NDC>.
-
-To clear out the NDC stack, just call
+or clear out the entire NDC stack by calling
 
     Log::Log4perl::NDC->remove();
 
-Again, the top of the stack is always available via the "%x" placeholder
+Even if you should forget to do that, C<Log::Log4perl> won't grow the stack
+indefinitely, but limit it to a maximum, defined in C<Log::Log4perl::NDC>
+(currently 5). A call to C<push()> on a full stack will just replace
+the topmost element by the new value.
+
+Again, the stack is always available via the "%x" placeholder
 in the Log::Log4perl::Layout::PatternLayout class whenever a logger
-fires. What it does is just call
+fires. It will replace "%x" by the blank-separated list of the
+values on the stack. It does that by just calling
 
     Log::Log4perl::NDC->get();
 
@@ -1601,14 +1678,12 @@ Manual installation works as usual with
     make test
     make install
 
-If you're running Windows, and you're too lazy to rummage through all of 
+If you're running B<Windows (98, 2000, NT, XP etc.)>, 
+and you're too lazy to rummage through all of 
 Log-Log4perl's dependencies, don't despair: We're providing a PPM package
-which installs easily with your Activestate Perl. Just type
-
-    ppm install "http://log4perl.sourceforge.net/ppm/Log-Log4perl.ppd"
-
-on the command line and Log4perl including all dependencies will be 
-installed automatically on your system.
+which installs easily with your Activestate Perl. Check
+L<Log::Log4perl::FAQ/"how_can_i_install_log__log4perl_on_microsoft_windows">
+for details.
 
 =head1 DEVELOPMENT
 

@@ -7,6 +7,8 @@ use strict;
 use warnings;
 
 use Log::Log4perl::Level;
+use Log::Log4perl::Config;
+
 use constant DEBUG => 0;
 
 our $unique_counter = 0;
@@ -37,7 +39,8 @@ sub new {
         no strict 'refs';
         # see 'perldoc -f require' for why two evals
         eval "require $appenderclass"
-             unless ${$appenderclass.'::IS_LOADED'};  #for unit tests, see 004Config
+             unless ${$appenderclass.'::IS_LOADED'};  #for unit tests, 
+                                                      #see 004Config
              ;
         die $@ if $@;
 
@@ -74,6 +77,14 @@ sub new {
                  layout   => undef,
                  level    => $DEBUG,
                };
+
+        #whether to collapse arrays, etc.
+    $self->{warp_message} = $params{warp_message};
+    if($self->{warp_message} and
+       my $cref = 
+       Log::Log4perl::Config::compile_if_perl($self->{warp_message})) {
+        $self->{warp_message} = $cref;
+    }
     
     bless $self, $class;
 
@@ -115,13 +126,40 @@ sub log { # Relay this call to Log::Dispatch::Whatever
 
     #doing the rendering in here 'cause this is 
     #where we keep the layout
+
+        #not defined, the normal case
+    if (! defined $self->{warp_message} ){ 
+            #join any message elements
+        $p->{message} = 
+            join($Log::Log4perl::JOIN_MSG_ARRAY_CHAR, 
+                 @{$p->{message}} 
+                 );
+        
+        #defined but false, e.g. Appender::DBI
+    } elsif (! $self->{warp_message}) {
+        ;  #leave the message alone
+
+    } elsif (ref($self->{warp_message}) eq "CODE") {
+        #defined and a subref
+        $p->{message} = 
+            [$self->{warp_message}->(@{$p->{message}})];
+    } else {
+        #defined and a function name?
+        no strict qw(refs);
+        $p->{message} = 
+            [$self->{warp_message}->(@{$p->{message}})];
+    }
+
     $p->{message} = $self->{layout}->render($p->{message}, 
                                             $category,
                                             $level,
                                             3 + $Log::Log4perl::caller_depth,
                                             );
-    $self->{appender}->log(%$p);
 
+    $self->{appender}->log(%$p, 
+                            #these are used by our Appender::DBI
+                            log4p_category => $category,
+                            log4p_level  => $level,);
     return 1;
 }
 
@@ -209,7 +247,8 @@ Log::Log4perl::Appender - Log appender class
 This class is a wrapper around the C<Log::Dispatch::*> collection of
 dispatchers, so they can be used by C<Log::Log4perl>. 
 The module hides the idiosyncrasies of C<Log::Dispatch>
-(e.g. every dispatcher gotta have a name, but there's no accessor to retrieve it)
+(e.g. every dispatcher gotta have a name, but there's no 
+accessor to retrieve it)
 from C<Log::Log4perl> and yet re-uses the extremely useful 
 variety of dispatchers already created and tested
 in C<Log::Dispatch>.
@@ -295,21 +334,112 @@ C<Log::Log4perl> to change this behaviour by slipping it the
 C<mode =E<gt> append> parameter behind the scenes. So, effectively
 with C<Log::Log4perl> 0.23, a configuration like
 
-    log4j.category = INFO, FileAppndr
-    log4j.appender.FileAppndr          = Log::Dispatch::File
-    log4j.appender.FileAppndr.filename = test.log
-    log4j.appender.FileAppndr.layout   = Log::Log4perl::Layout::SimpleLayout
+    log4perl.category = INFO, FileAppndr
+    log4perl.appender.FileAppndr          = Log::Dispatch::File
+    log4perl.appender.FileAppndr.filename = test.log
+    log4perl.appender.FileAppndr.layout   = Log::Log4perl::Layout::SimpleLayout
 
 will always I<append> to an existing logfile C<test.log> while if you 
 specifically request clobbering like in
 
-    log4j.category = INFO, FileAppndr
-    log4j.appender.FileAppndr          = Log::Dispatch::File
-    log4j.appender.FileAppndr.filename = test.log
-    log4j.appender.FileAppndr.mode     = write
-    log4j.appender.FileAppndr.layout   = Log::Log4perl::Layout::SimpleLayout
+    log4perl.category = INFO, FileAppndr
+    log4perl.appender.FileAppndr          = Log::Dispatch::File
+    log4perl.appender.FileAppndr.filename = test.log
+    log4perl.appender.FileAppndr.mode     = write
+    log4perl.appender.FileAppndr.layout   = Log::Log4perl::Layout::SimpleLayout
 
 it will overwrite an existing log file C<test.log> and start from scratch.
+
+=head1 Appenders Expecting Message Chunks
+
+Instead of simple strings, certain appenders are expecting multiple fields
+as log messages. If a statement like 
+
+    $logger->debug($ip, $user, "signed in");
+
+causes an off-the-shelf C<Log::Log4perl::Screen> 
+appender to fire, the appender will 
+just concatenate the three message chunks passed to it
+in order to form a single string.
+The chunks will be separated by a string defined in 
+C<$Log::Log4perl::JOIN_MSG_ARRAY_CHAR> (defaults to the empty string
+""). 
+
+However, different appenders might choose to 
+interpret the message above differently: An
+appender like C<Log::Log4perl::Appender::DBI> might take the
+three arguments passed to the logger and put them in three separate
+rows into the DB.
+
+The  C<warp_message> appender option is used to specify the desired 
+behaviour.
+If no setting for the appender property
+
+    # *** Not defined ***
+    # log4perl.appender.SomeApp.warp_message
+
+is defined in the Log4perl configuration file, the
+appender referenced by C<SomeApp> will fall back to the standard behaviour
+and join all message chunks together, separating them by
+C<$Log::Log4perl::JOIN_MSG_ARRAY_CHAR>.
+
+If, on the other hand, it is set to a false value, like in
+
+    log4perl.appender.A1.layout=NoopLayout
+    log4perl.appender.SomeApp.warp_message = 0
+
+then the message chunks are passed unmodified to the appender as an
+array reference. Please note that you need to set the appender's
+layout to C<Log::Log4perl::Layout::NoopLayout> which just leaves 
+the messages chunks alone instead of formatting them or replacing
+conversion specifiers.
+
+B<Please note that the standard appenders in the Log::Dispatch hierarchy
+will choke on a bunch of messages passed to them as an array reference. 
+You can't use C<warp_message = 0> (or the function name syntax
+defined below) on them.
+Only special appenders like Log::Log4perl::Appender::DBI can deal with
+this.>
+
+If (and now we're getting fancy)
+an appender expects message chunks, but we would 
+like to pre-inspect and probably modify them before they're 
+actually passed to the appender's C<log>
+method, an inspection subroutine can be defined with the
+appender's C<warp_message> property:
+
+    log4perl.appender.A1.layout=NoopLayout
+    log4perl.appender.SomeApp.warp_message = sub { \
+                                           $#_ = 2 if @_ > 3; \
+                                           return @_; }
+
+The inspection subroutine defined by the C<warp_message> 
+property will receive the list of message chunks, like they were
+passed to the logger and is expected to return a corrected list.
+The example above simply limits the argument list to a maximum of
+three by cutting off excess elements and returning the shortened list.
+
+Also, the warp function can be specified by name like in
+
+    log4perl.appender.A1.layout=NoopLayout
+    log4perl.appender.SomeApp.warp_message = main::filter_my_message
+
+In this example,
+C<filter_my_message> is a function in the C<main> package, 
+defined like this:
+
+    my $COUNTER = 0;
+
+    sub filter_my_message {
+        my @chunks = @{$_[0]};
+        unshift @chunks, ++$COUNTER;
+        return \@chunks;
+    }
+
+The subroutine above will add an ever increasing counter
+as an additional first field to 
+every message passed to the C<SomeApp> appender -- but not to
+any other appender in the system.
 
 =head1 SEE ALSO
 

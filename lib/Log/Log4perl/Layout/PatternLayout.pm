@@ -19,7 +19,7 @@ our $PROGRAM_START_TIME;
 
 our %GLOBAL_USER_DEFINED_CSPECS = ();
 
-our $CSPECS = 'cCdfFHIlLmMnpPrtxX%';
+our $CSPECS = 'cCdFHIlLmMnpPrtxX%';
 
 
 BEGIN {
@@ -65,10 +65,11 @@ sub new {
     my ($data) = @_;
 
     my ($layout_string);
-     
+
     if (ref $data && !exists $data->{ConversionPattern}{value} or
         !defined $data) {
-        die "No ConversionPattern given for PatternLayout\n";
+        #die "No ConversionPattern given for PatternLayout\n";
+        $layout_string = '%m%n';  #this is better per http://jakarta.apache.org/log4j/docs/api/org/apache/log4j/PatternLayout.html
     } elsif (ref $data) {
         $layout_string = $data->{ConversionPattern}{value};
     } else {
@@ -80,6 +81,7 @@ sub new {
         info_needed => {},
         stack       => [],
         CSPECS      => $CSPECS,
+        dontCollapseArrayRefs => $data->{dontCollapseArrayRefs}{value},
     };
 
     bless $self, $class;
@@ -179,6 +181,19 @@ sub render {
             $wantarray, $evaltext, $is_require, 
             $hints, $bitmask) = caller($caller_level);
 
+        # If caller() choked because of a whacko caller level,
+        # correct undefined values to '[undef]' in order to prevent 
+        # warning messages when interpolating later
+        unless(defined $bitmask) {
+            for($package, 
+                $filename, $line,
+                $subroutine, $hasargs,
+                $wantarray, $evaltext, $is_require,
+                $hints, $bitmask) {
+                $_ = '[undef]' unless defined $_;
+            }
+        }
+
         $info{L} = $line;
         $info{F} = $filename;
         $info{C} = $package;
@@ -246,7 +261,7 @@ sub render {
         }
     }
 
-    #print STDERR "sprintf $self->{printformat}\n";
+    #print STDERR "sprintf $self->{printformat}--$results[0]--\n";
 
     return (sprintf $self->{printformat}, @results);
 }
@@ -298,8 +313,10 @@ sub add_global_cspec {
 # Accepts a coderef or text
 ##################################################
 
-    die "User Defined cspecs are not allowed\n"
-        if ($Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS);
+    unless($Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE) {
+        die "\$Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE setting " .
+            "prohibits user defined cspecs";
+    }
 
     my ($letter, $perlcode) = @_;
 
@@ -340,8 +357,10 @@ sub add_layout_cspec {
 ##################################################
     my ($self, $letter, $perlcode) = @_;
 
-    die "User Defined cspecs are not allowed\n"
-        if ($Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS);
+    unless($Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE) {
+        die "\$Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE setting " .
+            "prohibits user defined cspecs";
+    }
 
     croak "Illegal value '$letter' in call to add_layout_cspec()"
         unless ($letter =~ /^[a-zA-Z]$/);
@@ -431,15 +450,6 @@ replaced by the logging engine when it's time to log the message:
 NDC and MDC are explained in L<Log::Log4perl/"Nested Diagnostic Context (NDC)">
 and L<Log::Log4perl/"Mapped Diagnostic Context (MDC)">.
 
-=head2 SECURITY NOTE
-
-The L<Custom cspecs> feature described below means arbitrary perl code can be 
-embedded in the config file.  In the rare case where the people who have 
-access to your config file are different from the people who write your code 
-and shouldn't have execute rights, you might want to set
-
-    $Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS = 1;
-
 =head2 Quantify placeholders
 
 All placeholders can be extended with formatting instructions,
@@ -463,10 +473,10 @@ with content after them:
     %c{2}  Just show the two right most category components
            (Foo::Baz::Bar -> Baz::Bar)
 
-    %f     Display source file including full path
-    %f{1}  Just display filename
-    %f{2}  Display filename and last path component (dir/test.log)
-    %f{3}  Display filename and last two path components (d1/d2/test.log)
+    %F     Display source file including full path
+    %F{1}  Just display filename
+    %F{2}  Display filename and last path component (dir/test.log)
+    %F{3}  Display filename and last two path components (d1/d2/test.log)
 
 In this way, you're able to shrink the displayed category or
 limit file/path components to save space in your logs.
@@ -568,10 +578,9 @@ embedded in the config file.  In the rare case where the people who have
 access to your config file are different from the people who write your code 
 and shouldn't have execute rights, you might want to set
 
-    $Log::Log4perl::DONT_ALLOW_USER_DEFINED_CSPECS = 1;
+    $Log::Log4perl::ALLOW_CODE_IN_CONFIG_FILE = 1;
 
 before you call init().
-
 
 =head1 SEE ALSO
 
