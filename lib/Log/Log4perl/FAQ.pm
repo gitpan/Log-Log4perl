@@ -126,8 +126,8 @@ Log::Log4perl is fully supported on the Win32 platform. It has been tested
 with Activestate perl 5.6.1 under Windows 98 and rumor has it that it
 also runs smoothly on all other major flavors (Windows NT, 2000, XP, etc.).
 
-It also runs nicely with the buggy ActiveState 5.8.0 beta as of this
-writing, and, believe me, we had to jump through some major hoops for that.
+It also runs nicely with ActiveState 5.8.0, and, believe me, 
+we had to jump through some major hoops for that.
 
 Typically, Win32 systems don't have the C<make> utility installed,
 so the standard C<perl Makefile.PL; make install> on the downloadable
@@ -951,6 +951,357 @@ C<value>).
 When it comes to logging, Log::Log4perl will call the filter function,
 pass the C<value> as an argument and log the return value.
 Saves you serious cycles.
+
+=head2 How can I collect all FATAL messages in an extra log file?
+
+Suppose you have employed Log4perl all over your system and you've already
+activated logging in various subsystems. On top of that, without disrupting
+any other settings, how can you collect all FATAL messages all over the system
+and send them to a separate log file? 
+
+If you define a root logger like this:
+
+    log4perl.logger                  = FATAL, File
+    log4perl.appender.File           = Log::Dispatch::File
+    log4perl.appender.File.filename  = /tmp/fatal.txt
+    log4perl.appender.File.layout    = PatternLayout
+    log4perl.appender.File.layout.ConversionPattern= %d %m %n
+        # !!! Something's missing ...
+
+you'll be surprised to not only receive all FATAL messages
+issued anywhere in the system,
+but also everything else -- gazillions of 
+ERROR, WARN, INFO and even DEBUG messages will end up in
+your fatal.txt logfile!
+Reason for this is Log4perl's (or better: Log4j's) appender additivity. 
+Once a 
+lower-level logger decides to fire, the message is going to be forwarded
+to all appenders upstream -- without further priority checks with their
+attached loggers.
+
+There's a way to prevent this, however: If your appender defines a
+minimum threshold, only messages of this priority or higher are going
+to be logged. So, just add
+
+    log4perl.appender.File.Threshold = FATAL 
+
+to the configuration above, and you'll get what you wanted in the 
+first place: An overall system FATAL message collector.
+
+=head2 How can I bundle several log messages into one?
+
+Would you like to tally the messages arriving at your appender and
+dump out a summary once they're exceeding a certain threshold?
+So that something like
+
+    $logger->error("Blah");
+    $logger->error("Blah");
+    $logger->error("Blah");
+
+won't be logged as 
+
+    Blah
+    Blah
+    Blah
+
+but as
+
+    [3] Blah
+
+instead? If you'd like to hold off on logging a message until it has been
+sent a couple of times, you can roll that out by creating a buffered 
+appender.
+
+Let's define a new appender like
+
+    package Log::Dispatch::Tally;
+    use Log::Dispatch::Output;
+    use base qw( Log::Dispatch::Output );
+
+    sub new {
+        my($class, %options) = @_;
+    
+        my $self = { maxcount => 5,
+                     %options
+                   };
+    
+        bless $self, $class;
+    
+        $self->_basic_init( %options );
+    
+        $self->{last_message}        = "";
+        $self->{last_message_count}  = 0;
+    
+        return $self;
+    }
+
+with two additional instance variables C<last_message> and 
+C<last_message_count>, storing the content of the last message sent
+and a counter of how many times this has happened. Also, it features
+a configuration parameter C<maxcount> which defaults to 5 in the
+snippet above but can be set in the Log4perl configuration file like this:
+ 
+    log4perl.logger = INFO, A
+    log4perl.appender.A=Log::Dispatch::Tally
+    log4perl.appender.A.maxcount = 3
+
+The main tallying logic lies in the appender's C<log_message> method,
+which is called every time Log4perl thinks a message needs to get logged
+by our appender:
+
+    sub log_message {
+        my($self, %params) = @_;
+
+            # Message changed? Print buffer.
+        if($self->{last_message} and
+           $params{message} ne $self->{last_message}) {
+            print "[$self->{last_message_count}]: " .
+                  "$self->{last_message}";
+            $self->{last_message_count} = 1;
+            $self->{last_message} = $params{message};
+            return;
+        }
+
+        $self->{last_message_count}++;
+        $self->{last_message} = $params{message};
+
+            # Threshold exceeded? Print, reset counter
+        if($self->{last_message_count} >= 
+           $self->{maxcount}) {
+            print "[$self->{last_message_count}]: " .
+                  "$params{message}";
+            $self->{last_message_count} = 0;
+            $self->{last_message}       = "";
+            return;
+        }
+    }
+
+We basically just check if the oncoming message in C<$param{message}>
+is equal to what we've saved before in the C<last_message> instance
+variable. If so, we're increasing C<last_message_count>.
+We print the message in two cases: If the new message is different
+than the buffered one, because then we need to dump the old stuff
+and store the new. Or, if the counter exceeds the threshold, as
+defined by the C<maxcount> configuration parameter.
+
+Please note that the appender always gets the fully rendered message and
+just compares it as a whole -- so if there's a date/timestamp in there,
+that might confuse your logic. You can work around this by specifying
+%m %n as a layout and add the date later on in the appender. Or, make
+the comparison smart enough to omit the date.
+
+At last, don't forget what happens if the program is being shut down.
+If there's still messages in the buffer, they should be printed out
+at that point. That's easy to do in the appender's DESTROY method,
+which gets called at object destruction time:
+
+    sub DESTROY {
+        my($self) = @_;
+
+        if($self->{last_message_count}) {
+            print "[$self->{last_message_count}]: " .
+                  "$self->{last_message}";
+            return;
+        }
+    }
+
+This will ensure that none of the buffered messages are lost. 
+Happy buffering!
+
+=head2 I want to log ERROR and WARN messages to different files! How can I do that?
+
+Let's assume you wanted to have each logging statement written to a
+different file, based on the statement's priority. Messages with priority
+C<WARN> are supposed to go to C</tmp/app.warn>, events prioritized
+as C<ERROR> should end up in C</tmp/app.error>.
+
+Now, if you define two appenders C<AppWarn> and C<AppError>
+and assign them both to the root logger,
+messages bubbling up from any loggers below will be logged by both
+appenders because of Log4perl's message propagation feature. If you limit
+their exposure via the appender threshold mechanism and set 
+C<AppWarn>'s threshold to C<WARN> and C<AppError>'s to C<ERROR>, you'll
+still get C<ERROR> messages in C<AppWarn>, because C<AppWarn>'s C<WARN>
+setting will just filter out messages with a I<lower> priority than
+C<WARN> -- C<ERROR> is higher and will be allowed to pass through.
+
+What we need for this is a Log4perl I<Custom Filter>, available with 
+Log::Log4perl 0.30.
+
+Both appenders need to verify that
+the priority of the oncoming messages exactly I<matches> the priority 
+the appender is supposed to log messages of. To accomplish this task,
+let's define two custom filters, C<MatchError> and C<MatchWarn>, which,
+when attached to their appenders, will limit messages passed on to them
+to those matching a given priority: 
+
+    log4perl.logger = WARN, AppWarn, AppError
+
+        # Filter to match level ERROR
+    log4perl.filter.MatchError = Log::Log4perl::Filter::LevelMatch
+    log4perl.filter.MatchError.LevelToMatch  = ERROR
+    log4perl.filter.MatchError.AcceptOnMatch = true
+
+        # Filter to match level WARN
+    log4perl.filter.MatchWarn  = Log::Log4perl::Filter::LevelMatch
+    log4perl.filter.MatchWarn.LevelToMatch  = WARN
+    log4perl.filter.MatchWarn.AcceptOnMatch = true
+
+        # Error appender
+    log4perl.appender.AppError = Log::Dispatch::File
+    log4perl.appender.AppError.filename = /tmp/app.err
+    log4perl.appender.AppError.layout   = SimpleLayout
+    log4perl.appender.AppError.Filter   = MatchError
+
+        # Warning appender
+    log4perl.appender.AppWarn = Log::Dispatch::File
+    log4perl.appender.AppWarn.filename = /tmp/app.warn
+    log4perl.appender.AppWarn.layout   = SimpleLayout
+    log4perl.appender.AppWarn.Filter   = MatchWarn
+
+The appenders C<AppWarn> and C<AppError> defined above are logging to C</tmp/app.warn> and
+C</tmp/app.err> respectively and have the custom filters C<MatchWarn> and C<MatchError>
+attached.
+This setup will direct all WARN messages, issued anywhere in the system, to /tmp/app.warn (and 
+ERROR messages to /tmp/app.error) -- without any overlaps.
+
+=head2 On our server farm, Log::Log4perl configuration files differ slightly from host to host. Can I roll them all into one?
+
+You sure can, because Log::Log4perl allows you to specify attribute values 
+dynamically. Let's say that one of your appenders expects the host's IP address
+as one of its attributes. Now, you could certainly roll out different 
+configuration files for every host and specify the value like
+
+    log4perl.appender.MyAppender    = Log::Dispatch::SomeAppender
+    log4perl.appender.MyAppender.ip = 10.0.0.127
+
+but that's a maintenance nightmare. Instead, you can have Log::Log4perl 
+figure out the IP address at configuration time and set the appender's
+value correctly:
+
+        # Set the IP address dynamically
+    log4perl.appender.MyAppender    = Log::Dispatch::SomeAppender
+    log4perl.appender.MyAppender.ip = sub { \
+       use Sys::Hostname; \
+       use Socket; \
+       return inet_ntoa(scalar gethostbyname hostname); \
+    }
+
+If Log::Log4perl detects that an attribute value starts with something like
+C<"sub {...">, it will interpret it as a perl subroutine which is to be executed
+once at configuration time (not runtime!) and its return value is
+to be used as the attribute value. This comes in handy
+for rolling out applications whichs Log::Log4perl configuration files
+show small host-specific differences, because you can deploy the unmodified
+application distribution on all instances of the server farm.
+
+=head2 Log4perl doesn't interpret my backslashes correctly!
+
+If you're using Log4perl's feature to specify the configuration as a
+string in your program (as opposed to a separate configuration file),
+chances are that you've written it like this:
+
+    # *** WRONG! ***
+
+    Log::Log4perl->init( \ <<END_HERE);
+        log4perl.logger = WARN, A1
+        log4perl.appender.A1 = Log::Dispatch::Screen
+        log4perl.appender.A1.layout = \
+            Log::Log4perl::Layout::PatternLayout
+        log4perl.appender.A1.layout.ConversionPattern = %m%n
+    END_HERE
+
+    # *** WRONG! ***
+
+and you're getting the following error message:
+
+    Layout not specified for appender A1 at .../Config.pm line 342.
+
+What's wrong? The problem is that you're using a here-document with
+substitution enabled (C<E<lt>E<lt>END_HERE>) and that Perl won't 
+interpret backslashes at line-ends as continuation characters but 
+will essentially throw them out. So, in the code above, the layout line
+will look like
+
+    log4perl.appender.A1.layout =
+
+to Log::Log4perl which causes it to report an error. To interpret the backslash
+at the end of the line correctly as a line-continuation character, use
+the non-interpreting mode of the here-document like in 
+
+    # *** RIGHT! ***
+
+    Log::Log4perl->init( \ <<'END_HERE');
+        log4perl.logger = WARN, A1
+        log4perl.appender.A1 = Log::Dispatch::Screen
+        log4perl.appender.A1.layout = \
+            Log::Log4perl::Layout::PatternLayout
+        log4perl.appender.A1.layout.ConversionPattern = %m%n
+    END_HERE
+
+    # *** RIGHT! ***
+
+(note the single quotes around C<'END_HERE'>) or use C<q{...}> 
+instead of a here-document and Perl will treat the backslashes at 
+line-end as intended.
+
+=head2 I want to suppress certain messages based on their content!
+
+Let's assume you've plastered all your functions with Log4perl 
+statements like
+
+    sub some_func {
+
+        INFO("Begin of function");
+
+        # ... Stuff happens here ...
+
+        INFO("End of function");
+    }
+
+to issue two log messages, one at the beginning and one at the end of
+each function. Now you want to suppress the message at the beginning
+and only keep the one at the end, what can you do? You can't use the category
+mechanism, because both messages are issued from the same package.
+
+Log::Log4perl's custom filters (0.30 or better) provide an interface for the 
+Log4perl user to step in right before a message gets logged and decide if 
+it should be written out or suppressed, based on the message content or other
+parameters:
+
+    use Log::Log4perl qw(:easy);
+    
+    Log::Log4perl::init( \ <<'EOT' );
+        log4perl.logger             = INFO, A1
+        log4perl.appender.A1        = Log::Dispatch::Screen
+        log4perl.appender.A1.layout = \
+            Log::Log4perl::Layout::PatternLayout
+        log4perl.appender.A1.layout.ConversionPattern = %m%n
+    
+        log4perl.filter.M1 = Log::Log4perl::Filter::StringMatch
+        log4perl.filter.M1.StringToMatch = Begin
+        log4perl.filter.M1.AcceptOnMatch = false
+    
+        log4perl.appender.A1.Filter = M1
+EOT
+
+The last four statements in the configuration above are defining a custom 
+filter C<M1> of type C<Log::Log4perl::Filter::StringMatch>, which comes with 
+Log4perl right out of the box and allows you to define a text pattern to match
+(as a perl regular expression) and a flag C<AcceptOnMatch> indicating
+if a match is supposed to suppress the message or let it pass through.
+
+The last line then assigns this filter to the C<A1> appender, which will
+call it every time it receives a message to be logged and throw all
+messages out I<not> matching the regular expression C<Begin>.
+
+Instead of using the standard C<Log::Log4perl::Filter::StringMatch> filter,
+you can define your own, simply using a perl subroutine:
+
+    log4perl.filter.ExcludeBegin  = sub { !/Begin/ }
+    log4perl.appender.A1.Filter   = ExcludeBegin
+
+For details on custom filters, check L<Log::Log4perl::Filter>.
 
 =cut
 

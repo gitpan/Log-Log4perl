@@ -14,7 +14,7 @@ use Log::Log4perl::Appender;
 
 use constant DEBUG => 1;
 
-our $VERSION = '0.29';
+our $VERSION = '0.30';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -116,6 +116,12 @@ sub import {
         # We received an Option we couldn't understand.
         die "Unknown Option(s): @{[keys %tags]}";
     }
+}
+
+##################################################
+sub initialized {
+##################################################
+    return $Log::Log4perl::Logger::INITIALIZED;
 }
 
 ##################################################
@@ -601,6 +607,7 @@ all of them at once if you desire to do so.
 
 Here's the list of appender modules currently available via C<Log::Dispatch>:
 
+       Log::Log4perl::Appender::DBI (by Kevin Goess)
        Log::Dispatch::ApacheLog
        Log::Dispatch::DBI (by Tatsuhiko Miyagawa)
        Log::Dispatch::Email,
@@ -608,7 +615,7 @@ Here's the list of appender modules currently available via C<Log::Dispatch>:
        Log::Dispatch::Email::MailSendmail,
        Log::Dispatch::Email::MIMELite
        Log::Dispatch::File
-       Log::Dispatch::RollingFile (by Mark Pfeiffer)
+       Log::Dispatch::FileRotate (by Mark Pfeiffer)
        Log::Dispatch::Handle
        Log::Dispatch::Screen
        Log::Dispatch::Syslog
@@ -773,7 +780,7 @@ how it works:
     log4j.rootLogger=DEBUG, A1
     log4j.appender.A1=org.apache.log4j.ConsoleAppender
     log4j.appender.A1.layout=org.apache.log4j.PatternLayout
-    log4j.appender.A1.layout.ConversionPattern=%-4r [%t] %-5p %c %x - %m%n
+    log4j.appender.A1.layout.ConversionPattern=%-4r %-5p %c %x - %m%n
 
 This enables messages of priority C<debug> or higher in the root
 hierarchy and has the system write them to the console. 
@@ -786,7 +793,7 @@ Second example:
     log4perl.rootLogger=DEBUG, A1
     log4perl.appender.A1=Log::Dispatch::Screen
     log4perl.appender.A1.layout=PatternLayout
-    log4perl.appender.A1.layout.ConversionPattern=%d [%t] %-5p %c - %m%n
+    log4perl.appender.A1.layout.ConversionPattern=%d %-5p %c - %m%n
     log4perl.logger.com.foo=WARN
 
 This defines two loggers: The root logger and the C<com.foo> logger.
@@ -805,11 +812,11 @@ Third example:
     log4j.rootLogger=debug, stdout, R
     log4j.appender.stdout=org.apache.log4j.ConsoleAppender
     log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
-    log4j.appender.stdout.layout.ConversionPattern=%5p [%t] (%F:%L) - %m%n
+    log4j.appender.stdout.layout.ConversionPattern=%5p (%F:%L) - %m%n
     log4j.appender.R=org.apache.log4j.RollingFileAppender
     log4j.appender.R.File=example.log
     log4j.appender.R.layout=org.apache.log4j.PatternLayout
-    log4j.appender.R.layout.ConversionPattern=%p %t %c - %m%n
+    log4j.appender.R.layout.ConversionPattern=%p %c - %m%n
 
 The root logger defines two appenders here: C<stdout>, which uses 
 C<org.apache.log4j.ConsoleAppender> (ultimately mapped by C<Log::Log4perl>
@@ -1176,6 +1183,18 @@ real class name as an argument and all other methods can determine it
 via C<ref($self)>), so it shouldn't be a problem to get the right class
 every time.
 
+=head1 Custom Filters
+
+Log4perl allows the use of customized filters in its appenders
+to control the output of messages. These filters might grep for
+certain text chunks in a message, verify that its priority
+matches or exceeds a certain level or that this is the 10th
+time the same message has been submitted -- and come to a log/no log 
+decision based upon these circumstantial facts.
+
+Check out L<Log::Log4perl::Filter> for detailed instructions 
+on how to use them.
+
 =head1 Cool Tricks
 
 =head2 Shortcuts
@@ -1210,6 +1229,32 @@ a reference to it:
     );
 
     Log::Log4perl->init( \%key_value_pairs );
+
+Or also you can use a URL, see below:
+
+=head2 Using LWP to parse URLs
+
+(This section borrowed from XML::DOM::Parser by T.J. Mather).
+
+The init() function now also supports URLs, e.g. I<http://www.erols.com/enno/xsa.xml>.
+It uses LWP to download the file and then calls parse() on the resulting string.
+By default it will use a L<LWP::UserAgent> that is created as follows:
+
+ use LWP::UserAgent;
+ $LWP_USER_AGENT = LWP::UserAgent->new;
+ $LWP_USER_AGENT->env_proxy;
+
+Note that env_proxy reads proxy settings from environment variables, which is what I need to
+do to get thru our firewall. If you want to use a different LWP::UserAgent, you can 
+set it with
+
+    Log::Log4perl::Config::set_LWP_UserAgent($my_agent);
+
+Currently, LWP is used when the filename (passed to parsefile) starts with one of
+the following URL schemes: http, https, ftp, wais, gopher, or file (followed by a colon.)
+
+Don't use this feature with init_and_watch().
+
 
 =head2 Perl Hooks in the Configuration File
 

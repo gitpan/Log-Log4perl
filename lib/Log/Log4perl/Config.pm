@@ -12,6 +12,9 @@ use Log::Log4perl::Config::PropertyConfigurator;
 use Log::Dispatch;
 use Log::Dispatch::File;
 use Log::Log4perl::JavaMap;
+use Log::Log4perl::Filter;
+use Log::Log4perl::Filter::Boolean;
+
 use constant DEBUG => 0;
 
 # How to map lib4j levels to Log::Dispatch levels
@@ -89,7 +92,12 @@ sub _init {
 
     my $data = config_read($config);
     
-    my @loggers = ();
+    #use Data::Dumper;
+    #print Data::Dumper::Dumper($data) if DEBUG;
+
+    my @loggers      = ();
+    my %filter_names = ();
+
     my $system_wide_threshold;
 
         # Find all logger definitions in the conf file. Start
@@ -103,25 +111,27 @@ sub _init {
             # yes, we do.
         $system_wide_threshold = $data->{threshold}->{value};
     }
+
     if (exists $data->{oneMessagePerAppender}){
                     $Log::Log4perl::one_message_per_appender = 
                         $data->{oneMessagePerAppender}->{value};
     }
 
+        # Boolean filters 
+    my %boolean_filters = ();
+
         # Continue with lower level loggers. Both 'logger' and 'category'
         # are valid keywords. Also 'additivity' is one, having a logger
         # attached. We'll differenciate between the two further down.
-    for my $key (qw(logger category additivity PatternLayout)) {
+    for my $key (qw(logger category additivity PatternLayout filter)) {
 
         if(exists $data->{$key}) {
 
             for my $path (@{leaf_paths($data->{$key})}) {
 
-                my $value = pop @$path;
+                print "Path before: @$path\n" if DEBUG;
 
-                    # Translate boolean to perlish
-                $value = 1 if $value =~ /^true$/i;
-                $value = 0 if $value =~ /^false$/i;
+                my $value = boolean_to_perlish(pop @$path);
 
                 pop @$path; # Drop the 'value' keyword part
 
@@ -134,12 +144,71 @@ sub _init {
                 }elsif ($key eq "PatternLayout"){
                     &add_global_cspec(@$path[-1], $value);
 
+                }elsif ($key eq "filter"){
+                    print "Found entry @$path\n" if DEBUG;
+                    $filter_names{@$path[0]}++;
                 } else {
                     # This is a regular logger
                     push @loggers, [join('.', @$path), $value];
                 }
             }
         }
+    }
+
+        # Now go over all filters found by name
+    for my $filter_name (keys %filter_names) {
+
+        print "Checking filter $filter_name\n" if DEBUG;
+
+            # The boolean filter needs all other filters already
+            # initialized, defer its initialization
+        if($data->{filter}->{$filter_name}->{value} eq
+           "Log::Log4perl::Filter::Boolean") {
+            print "Boolean filter ($filter_name)\n" if DEBUG;
+            $boolean_filters{$filter_name}++;
+            next;
+        }
+
+        my $type = $data->{filter}->{$filter_name}->{value};
+        if(my $code = compile_if_perl($type)) {
+            $type = $code;
+        }
+        
+        print "Filter $filter_name is of type $type\n" if DEBUG;
+
+        my $filter;
+
+        if(ref($type) eq "CODE") {
+                # Subroutine - map into generic Log::Log4perl::Filter class
+            $filter = Log::Log4perl::Filter->new($filter_name, $type);
+        } else {
+                # Filter class
+                eval "require $type";
+                if($@) { 
+                    die "$type doesn't exist";
+                }
+
+                # Invoke with all defined parameter
+                # key/values (except the key 'value' which is the entry 
+                # for the class)
+            $filter = $type->new(name => $filter_name,
+                map { $_ => $data->{filter}->{$filter_name}->{$_}->{value} } 
+                grep { $_ ne "value" } 
+                keys %{$data->{filter}->{$filter_name}});
+        }
+            # Register filter with the global filter registry
+        $filter->register();
+    }
+
+        # Initialize boolean filters (they need the other filters to be
+        # initialized to be able to compile their logic)
+    for my $name (keys %boolean_filters) {
+        my $logic = $data->{filter}->{$name}->{logic}->{value};
+        die "No logic defined for boolean filter $name" unless defined $logic;
+        my $filter = Log::Log4perl::Filter::Boolean->new(
+                         name  => $name, 
+                         logic => $logic);
+        $filter->register();
     }
 
     for (@loggers) {
@@ -232,6 +301,16 @@ sub _init {
                     # Need to split into two lines because of CVS
                 $appender->threshold($
                     Log::Log4perl::Level::PRIORITY{$threshold});
+            }
+
+                # Check for custom filters attached to the appender
+            my $filtername = 
+               $data->{appender}->{$appname}->{Filter}->{value};
+            if(defined $filtername) {
+                    # Need to split into two lines because of CVS
+                my $filter = Log::Log4perl::Filter::by_name($filtername);
+                die "Filter $filtername doesn't exist" unless defined $filter;
+                $appender->filter($filter);
             }
 
             if($system_wide_threshold) {
@@ -405,8 +484,8 @@ sub config_read {
 
     if ($text[0] =~ /^<\?xml /) {
         eval { require XML::DOM; require Log::Log4perl::Config::DOMConfigurator; };
-        #need to check version of XML::DOM! DEBUG!!!
         if ($@){die "Log4perl: missing XML::DOM needed to parse xml config files\n$@\n"}
+        XML::DOM->VERSION("1.29");
         $data = Log::Log4perl::Config::DOMConfigurator::parse(\@text);
     }else{
         $data = Log::Log4perl::Config::PropertyConfigurator::parse(\@text)
@@ -492,6 +571,18 @@ sub compile_if_perl {
     return undef;
 }
 
+###########################################
+sub boolean_to_perlish {
+###########################################
+    my($value) = @_;
+
+        # Translate boolean to perlish
+    $value = 1 if $value =~ /^true$/i;
+    $value = 0 if $value =~ /^false$/i;
+
+    return $value;
+}
+
 1;
 
 __END__
@@ -553,11 +644,6 @@ accomplished by simply omitting the name:
 
 This sets the root appender's level to C<FATAL> and also attaches the 
 later-to-be-defined appenders C<Database> and C<Mailer> to it.
-
-Loggers carrying a threshold, can be defined using the C<Threshold>
-keyword after the logger's name:
-
-    log4perl.logger.Bar.Twix.Threshold = ERROR
 
 The additivity flag of a logger is set or cleared via the 
 C<additivity> keyword:

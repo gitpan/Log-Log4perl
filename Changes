@@ -2,8 +2,19 @@
 Revision history for Log::Log4perl
 ##################################################
 
+0.30 03/14/2003
+    * (ms) Added Log4perl custom filter logic and standard filter set
+    * (kg) Added url support to init(), finally documenting it
+    * (kg) Finished implementation of DOMConfigurator allowing xml configs.
+    * (ms) Corrected DateFormat inconsistencies as reported by
+           Roger Perttu <roger.perttu@easit.se>
+
 0.29 01/30/2003
     * (kg) Removing debugging from 0.28, big woops
+    * (kg) Fixing 036JSyslog.t, Syslog implementations are too often broken
+           to base any results on.
+    * (kg) Fixing XML-DOM tests, Data::Dumper doesn't return data exactly the
+           same way.
 
 0.28 (01/28/2003)
     * (ms) '#' in the conf file are now interpreted as comment starters only
@@ -292,6 +303,9 @@ Revision history for Log::Log4perl
 
 TODO (not assigned to anybody yet):
 ##################################################
+    * objects passed via the config hash are stringified by Config.pm
+      (requires a significant change on how to init via a hash ref,
+       something like a HashConfigurator class)
     * BasicConfigurator() vs. :easy, PropertyConfigurator()
     * get_logger() thread safety (two try to create it at the same time)
     * Thread safety with appenders, e.g. two threads calling the 
@@ -307,25 +321,16 @@ TODO (not assigned to anybody yet):
 
 TODO Kevin:
 ##################################################
+    * use squirrel  http://www.perlmeister.com/scripts/squirrel?
     * document oneMessagePerAppender as a bona-fide feature
     * appender-by-name stuff?
-    * Module for reading XML-style config files
-    * DONE, CAN'T, SocketAppender actually ships a serialized LoggingEvent
-      object to the server side, we're not going to get into the business of
-      creating serialized Java objects! 
-       Dave Rolsky says: A couple other things: The JavaMap docs
-      mention that SocketAppender has no Log::Dispatch equivalent. You could
-      create an IO::Socket object and pass it to Log::Dispatch::Handle.
-    * DONE, added oneMessagePerAppender
-      Bug: If the *same* appender is being attached to several loggers,
-      appender inheritance doesn't work as expected: Even if the 
-      appender appears twice in the inheritance tree, it's only executed once.
-      But it actually needs to be run twice.
-    * DONE test cases should use platform independend directory separator
-      (Mac's pre-OSX ':'?) DONE need level validation on Logger::level()
-      DONE Create new module negotiating between Java-style config files
-      and perl-style appenders
-
+    * implement? #"log4j will render the content of the log message according to 
+            # user specified criteria. For example, if you frequently need 
+            # to log Oranges, an object type used in your current project, 
+            # then you can register an OrangeRenderer that will be invoked 
+            # whenever an orange needs to be logged. "
+         
+                
 TODO Mike:
 ##################################################
     * index.html on sourceforge should be part of CVS

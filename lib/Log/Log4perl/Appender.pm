@@ -121,6 +121,20 @@ sub log { # Relay this call to Log::Dispatch::Whatever
         return undef;
     }
 
+    # Run against the (yes only one) customized filter (which in turn
+    # might call other filters via the Boolean filter) and check if its
+    # ok() method approves the message or blocks it.
+    if($self->{filter}) {
+        if($self->{filter}->ok(%$p,
+                               log4p_category => $category,
+                               log4p_level    => $level )) {
+            print "Filter $self->{filter}->{name} passes\n" if DEBUG;
+        } else {
+            print "Filter $self->{filter}->{name} blocks\n" if DEBUG;
+            return undef;
+        }
+    }
+
     $self->{layout} || $self->layout();  #set to default if not already
                                          #can this be moved?
 
@@ -194,6 +208,19 @@ sub layout { # Set/Get the layout object
     }
 
     return $self->{layout};
+}
+
+##################################################
+sub filter { # Set filter
+##################################################
+    my ($self, $filter) = @_;
+
+    if($filter) {
+        print "Setting filter to $filter->{name}\n" if DEBUG;
+        $self->{filter} = $filter;
+    }
+
+    return $self->{filter};
 }
 
 ##################################################
@@ -385,7 +412,7 @@ C<$Log::Log4perl::JOIN_MSG_ARRAY_CHAR>.
 
 If, on the other hand, it is set to a false value, like in
 
-    log4perl.appender.A1.layout=NoopLayout
+    log4perl.appender.SomeApp.layout=NoopLayout
     log4perl.appender.SomeApp.warp_message = 0
 
 then the message chunks are passed unmodified to the appender as an
@@ -408,7 +435,7 @@ actually passed to the appender's C<log>
 method, an inspection subroutine can be defined with the
 appender's C<warp_message> property:
 
-    log4perl.appender.A1.layout=NoopLayout
+    log4perl.appender.SomeApp.layout=NoopLayout
     log4perl.appender.SomeApp.warp_message = sub { \
                                            $#_ = 2 if @_ > 3; \
                                            return @_; }
@@ -421,7 +448,7 @@ three by cutting off excess elements and returning the shortened list.
 
 Also, the warp function can be specified by name like in
 
-    log4perl.appender.A1.layout=NoopLayout
+    log4perl.appender.SomeApp.layout=NoopLayout
     log4perl.appender.SomeApp.warp_message = main::filter_my_message
 
 In this example,
@@ -431,9 +458,9 @@ defined like this:
     my $COUNTER = 0;
 
     sub filter_my_message {
-        my @chunks = @{$_[0]};
+        my @chunks = @_;
         unshift @chunks, ++$COUNTER;
-        return \@chunks;
+        return @chunks;
     }
 
 The subroutine above will add an ever increasing counter

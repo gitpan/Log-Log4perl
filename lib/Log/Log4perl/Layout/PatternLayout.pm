@@ -137,7 +137,7 @@ sub rep {
 
     # If it's a %d{...} construct, initialize a simple date
     # format formatter, so that we can quickly render later on.
-    # If it's just %d, assume %d{yyyy/MM/dd HH:mm::ss}
+    # If it's just %d, assume %d{yyyy/MM/dd HH:mm:ss}
     my $sdf;
     if($op eq "d") {
         if(defined $curlies) {
@@ -486,8 +486,9 @@ limit file/path components to save space in your logs.
 If you're not happy with the default %d format for the date which 
 looks like
 
-    YYYY/MM/DD HH:mm::ss
+    yyyy/MM/DD HH:mm:ss
 
+(which is slightly different from Log4j which uses C<yyyy-MM-dd HH:mm:ss,SSS>)
 you're free to fine-tune it in order to display only certain characteristics
 of a date, according to the SimpleDateFormat in the Java World
 (http://java.sun.com/j2se/1.3/docs/api/java/text/SimpleDateFormat.html):
@@ -525,8 +526,8 @@ specification:
 There's also a bunch of pre-defined formats:
 
     %d{ABSOLUTE}   "HH:mm:ss,SSS"
-    %d{DATE}       "dd MMM YYYY HH:mm:ss,SSS"
-    %d{ISO8601}    "YYYY-MM-dd HH:mm:ss,SSS"
+    %d{DATE}       "dd MMM yyyy HH:mm:ss,SSS"
+    %d{ISO8601}    "yyyy-MM-dd HH:mm:ss,SSS"
 
 =head2 Custom cspecs
 
