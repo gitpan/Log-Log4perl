@@ -13,7 +13,7 @@ use Log::Log4perl::Appender;
 
 use constant DEBUG => 1;
 
-our $VERSION = '0.35';
+our $VERSION = '0.36';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -278,6 +278,12 @@ sub get_logger {  # Get an instance (shortcut)
 
     # Delegate this to the logger module
     return Log::Log4perl::Logger->get_logger(@args);
+}
+
+##################################################
+sub appenders {  # Get all defined appenders hashref
+##################################################
+    return \%Log::Log4perl::Logger::APPENDER_BY_NAME;
 }
 
 1;
@@ -1857,6 +1863,23 @@ of C<$Log::Log4perl::caller_depth> (defaults to 0) by one for every
 wrapper that's in between your application and C<Log::Log4perl>,
 then C<Log::Log4perl> will compensate for the difference.
 
+=head1 Access to Internals
+
+The following methods are only of use if you want to peek/poke in
+the internals of Log::Log4perl. Be careful not to disrupt its
+inner workings.
+
+=over 4
+
+=item C<< Log::Log4perl->appenders() >>
+
+To find out which appenders are currently defined (not only
+for a particular logger, but overall), a C<appenders()>
+method is available to return a reference to a hash mapping appender
+names to their Log::Log4perl::Appender object references.
+
+=back
+
 =head1 EXAMPLE
 
 A simple example to cut-and-paste and get started:
@@ -1892,7 +1915,7 @@ which itself depends on C<Attribute-Handlers> and
 C<Params-Validate>. And a lot of other modules, that's the reason
 why we're now shipping Log::Log4perl with its own standard appenders
 and only if you wish to use additional ones, you'll have to go through
-the grueling C<Log::Dispatch> installation process.
+the C<Log::Dispatch> installation process.
 
 Log::Log4perl needs C<Test::Simple>, C<Test::Harness> and C<File::Spec>, 
 but they already come with fairly recent versions of perl.
