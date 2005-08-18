@@ -6,11 +6,15 @@ use 5.006;
 use strict;
 use warnings;
 
+use Log::Log4perl;
 use Log::Log4perl::Level;
 use Log::Log4perl::Layout;
 use Log::Log4perl::Appender;
 use Log::Log4perl::Filter;
 use Carp;
+
+$Carp::Internal{"Log::Log4perl"}++;
+$Carp::Internal{"Log::Log4perl::Logger"}++;
 
 use constant _INTERNAL_DEBUG => 0;
 
@@ -49,6 +53,8 @@ sub cleanup {
         delete $APPENDER_BY_NAME{$appendername};
     }
     %APPENDER_BY_NAME   = ();
+
+    undef $INITIALIZED;
 }
 
 ##################################################
@@ -842,8 +848,27 @@ sub logdie {
     $self->fatal(@chomped);
     $Log::Log4perl::caller_depth--;
   }
-  # no matter what, we die... 'cuz logdie wants you to die.
-  $self->and_die(@_);
+
+  $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR ? 
+      $self->and_die(@_) : 
+        exit($Log::Log4perl::LOGEXIT_CODE);
+}
+
+##################################################
+sub logexit {
+##################################################
+  my $self = shift;
+
+  if ($self->is_fatal()) {
+        # Since we're one caller level off now, compensate for that.
+    $Log::Log4perl::caller_depth++;
+    my @chomped = @_;
+    chomp($chomped[-1]);
+    $self->fatal(@chomped);
+    $Log::Log4perl::caller_depth--;
+  }
+
+  exit $Log::Log4perl::LOGEXIT_CODE;
 }
 
 ##################################################
@@ -859,12 +884,15 @@ sub noop {
 sub logcluck {
 ##################################################
   my $self = shift;
+
+  local $Carp::CarpLevel = $Carp::CarpLevel + 1;
+
   if ($self->is_warn()) {
     my $message = Carp::longmess(@_);
     foreach (split(/\n/, $message)) {
       $self->warn("$_\n");
     }
-    CORE::warn(noop($message));
+    Carp::cluck(noop($message));
   }
 }
 
@@ -872,14 +900,17 @@ sub logcluck {
 sub logcarp {
 ##################################################
   my $self = shift;
+
+  local $Carp::CarpLevel = $Carp::CarpLevel + 1;
+
   if ($self->is_warn()) {
     my $message = Carp::shortmess(@_);
     foreach (split(/\n/, $message)) {
       $self->warn("$_\n");
     }
-    CORE::warn(noop($message));
+    Carp::carp(noop($message)) if $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR;
   }
-} 
+}
 
 ##################################################
 # croaks and confess are FATAL level
@@ -887,28 +918,38 @@ sub logcarp {
 sub logcroak {
 ##################################################
   my $self = shift;
+
+  local $Carp::CarpLevel = $Carp::CarpLevel + 1;
+
   my $message = Carp::shortmess(@_);
   if ($self->is_fatal()) {
     foreach (split(/\n/, $message)) {
       $self->fatal("$_\n");
     }
   }
-  # again, we die no matter what
-  die(noop($message));
+
+  $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR ? 
+      Carp::croak(noop($message)) : 
+        exit($Log::Log4perl::LOGEXIT_CODE);
 }
 
 ##################################################
 sub logconfess {
 ##################################################
   my $self = shift;
+
+#local $Carp::CarpLevel = 2;
+
   my $message = Carp::longmess(@_);
   if ($self->is_fatal()) {
     foreach (split(/\n/, $message)) {
       $self->fatal("$_\n");
     }
   }
-  # again, we die no matter what
-  die(noop($message));
+
+  $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR ? 
+      die(noop($message)) :
+        exit($Log::Log4perl::LOGEXIT_CODE);
 }
 
 ##################################################
@@ -932,7 +973,10 @@ sub error_die {
     $self->error(@_);
     $Log::Log4perl::caller_depth--;
   }
-  $self->and_die(@_);
+
+  $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR ? 
+      $self->and_die(@_) :
+        exit($Log::Log4perl::LOGEXIT_CODE);
 }
 
 ##################################################

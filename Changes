@@ -2,6 +2,21 @@
  Revision history for Log::Log4perl
 ##################################################
 
+1.00 (08/13/2005)
+    * (ms) Added tag qw(:no_extra_logdie_message) to suppress duplicate
+           die() messages in scripts using simple configurations and LOGDIE().
+           Added logexit() as an alternative way.
+    * (ms) Fixed bug with logcarp/croak/cluck, which were using the 
+           wrong Carp level.
+    * (kg) Fixing bug in Appender::Limit regarding $_ scope
+    * (ms) corrected typo in Synchronized.pm found by Rob Redmon.
+    * (ms) Fixed bug with Appender::File reported by Michael Smith. Checking
+           now if print() succeeds, catching errors with full disks and
+           ulimit'ed environments.
+    * (ms) Added LOGCARP(), LOGCLUCK(), LOGCONFESS(), LOGCROAK() macros
+           in :easy mode (suggested by Jud Dagnall).
+    * (ms) $INITIALIZED now gets reset during logger cleanup.
+
 0.52 (05/08/2005)
     * (ms) Jonathan Manning <jmanning@alisa-jon.net> provided a patch
            for DateFormat.pm to fix 3-letter month abbreviations and a
