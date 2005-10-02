@@ -7,7 +7,16 @@ use warnings;
 use strict;
 
 use Log::Log4perl qw(:easy :no_extra_logdie_message);
-use Test::More tests => 9;
+use Test::More;
+
+BEGIN {
+    if ($] < 5.006) {
+        plan skip_all => "Only with perl >= 5.006";
+    } else {
+        plan tests => 9;
+    }
+}
+
 use Log::Log4perl::Appender::TestBuffer;
 
 is($Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR, 0, "internal variable set");
@@ -45,14 +54,14 @@ $buf->buffer("");
 LOGCARP("logcarp");
 
 is(readstderr(), "", "No output to stderr");
-like($buf->buffer(), qr/logcarp.*45/, "Appender output intact");
+like($buf->buffer(), qr/logcarp.*54/, "Appender output intact");
 
 $buf->buffer("");
 
 LOGCARP("logcarp");
 
 is(readstderr(), "", "No output to stderr");
-like($buf->buffer(), qr/logcarp.*52/, "Appender output intact");
+like($buf->buffer(), qr/logcarp.*61/, "Appender output intact");
 
 #########################################################################
 # Turn default behaviour back on
@@ -69,13 +78,13 @@ package main;
 
 Foo::foo();
 
-like(readstderr(), qr/logcarp.*70/, "Output to stderr");
-like($buf->buffer(), qr/logcarp.*70/, "Appender output intact");
+like(readstderr(), qr/logcarp.*79/, "Output to stderr");
+like($buf->buffer(), qr/logcarp.*79/, "Appender output intact");
 
 $buf->buffer("");
 eval {
     LOGDIE("logdie");
 };
-like($@, qr/logdie.*77/, "Output to stderr");
+like($@, qr/logdie.*86/, "Output to stderr");
 like($buf->buffer(), qr/logdie/, "Appender output intact");
 
