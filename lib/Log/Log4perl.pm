@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '1.03';
+our $VERSION = '1.04';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -63,6 +63,7 @@ our $CHATTY_DESTROY_METHODS = 0;
 
 our $LOGDIE_MESSAGE_ON_STDERR = 1;
 our $LOGEXIT_CODE             = 1;
+our %IMPORT_CALLED;
 
 ##################################################
 sub import {
@@ -72,6 +73,8 @@ sub import {
     no strict qw(refs);
 
     my $caller_pkg = caller();
+
+    return 1 if $IMPORT_CALLED{$caller_pkg}++;
 
     my(%tags) = map { $_ => 1 } @_;
 
@@ -1702,7 +1705,7 @@ names.
 For more information on opcodes and Safe Compartments, see L<Opcode> and
 L<Safe>.
 
-=head2 Incrementing and Decrementing the Log Levels
+=head2 Changing the Log Level on a Logger
 
 Log4perl provides some internal functions for quickly adjusting the
 log level from within a running Perl program. 
@@ -1715,11 +1718,24 @@ Typically run-time adjusting of levels is done
 at the beginning, or in response to some external input (like a
 "more logging" runtime command for diagnostics).
 
-To increase the level of logging currently being done, use:
+You get the log level from a logger object with:
+
+    $current_level = $logger->level();
+
+and you may set it with the same method, provided you first
+imported the log level constants, with:
+
+    use Log::Log4perl::Level;
+
+Then you can set the level on a logger to one of the constants,
+
+    $logger->level($ERROR); # one of DEBUG, INFO, WARN, ERROR, FATAL
+
+To B<increase> the level of logging currently being done, use:
 
     $logger->more_logging($delta);
 
-and to decrease it, use:
+and to B<decrease> it, use:
 
     $logger->less_logging($delta);
 
@@ -2487,6 +2503,7 @@ our
     Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
     Matisse Enzer
     James FitzGibbon <james.fitzgibbon@target.com>
+    Carl Franks
     Dennis Gregorovic <dgregor@redhat.com>
     Paul Harrington <Paul-Harrington@deshaw.com>
     David Hull <hull@paracel.com>

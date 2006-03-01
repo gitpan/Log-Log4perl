@@ -14,6 +14,7 @@ use Test::More tests => 68;
 
 use Log::Log4perl;
 use Log::Log4perl::Level;
+use Log::Log4perl::Util;
 
 ok(1); # If we made it this far, we're ok.
 
@@ -368,7 +369,13 @@ use Log::Log4perl::Appender::Screen;
 use Log::Log4perl::Appender::File;
 
 my $app_screen = Log::Log4perl::Appender::Screen->new();
-my $app_file = Log::Log4perl::Appender::File->new(filename => "/tmp/foobar");
+
+my $tmpfile = Log::Log4perl::Util::tmpfile_name();
+END { unlink $tmpfile };
+
+my $app_file = Log::Log4perl::Appender::File->new(
+    filename => $tmpfile
+);
 
 eval { $log10->add_appender($app_file); };
 is($@, "", "Adding file appender");
