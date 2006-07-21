@@ -8,7 +8,7 @@ use strict;
 
 use Test;
 
-BEGIN { plan tests => 18 }
+BEGIN { plan tests => 19 }
 
 use Log::Log4perl qw(get_logger);
 use Log::Log4perl::DateFormat;
@@ -76,7 +76,7 @@ ok($formatter->format($GMTIME), "Mon Mon Mon Monday");
 # Day of Year
 ###########################################
 $formatter = Log::Log4perl::DateFormat->new("D DD DDD DDDD");
-ok($formatter->format($GMTIME), "237 237 237  237");
+ok($formatter->format($GMTIME), "238 238 238  238");
 
 ###########################################
 # AM/PM
@@ -112,6 +112,13 @@ $formatter = Log::Log4perl::DateFormat->new("xx K");
 ok($formatter->format($GMTIME), "xx -- 'K' not (yet) implemented --");
 
 ###########################################
+# DDD bugfix
+###########################################
+$formatter = Log::Log4perl::DateFormat->new("DDD");
+   # 1/1/2006
+ok($formatter->format(1136106000), "  1");
+
+###########################################
 # In conjunction with Log4perl
 ###########################################
 my $conf = q(
@@ -129,3 +136,5 @@ $logger->error("Blah");
 
 ok(Log::Log4perl::Appender::TestBuffer->by_name("Buffer")->buffer(), 
      qr/\d\d:\d\d:\d\d ERROR Blah/);
+
+

@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '1.05';
+our $VERSION = '1.06';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -312,7 +312,7 @@ sub easy_init { # Initialize the root logger with a screen appender
             }
             $logger->{file} =~ /^(>)?(>)?/;
             my $mode = ($2 ? "append" : "write");
-            $logger->{file} =~ s/.*>+//g;
+            $logger->{file} =~ s/.*>+\s*//g;
             $app = Log::Log4perl::Appender->new(
                 "Log::Log4perl::Appender::File",
                 filename => $logger->{file},
@@ -2498,24 +2498,12 @@ our
     Mike Schilli <m@perlmeister.com>
     Kevin Goess <cpan@goess.org>
 
-    Contributors:
-    Hutton Davidson <Davidson.Hutton@ftid.com>
-    Chris R. Donnelly <cdonnelly@digitalmotorworks.com>
-    Matisse Enzer
-    Hugh Esco
-    James FitzGibbon <james.fitzgibbon@target.com>
-    Carl Franks
-    Dennis Gregorovic <dgregor@redhat.com>
-    Paul Harrington <Paul-Harrington@deshaw.com>
-    David Hull <hull@paracel.com>
-    Jeff Macdonald <jeff.macdonald@e-dialog.com>
-    Markus Peter <warp@spin.de>
-    Brett Rann <brettrann@mail.com>
-    Erik Selberg <erik@selberg.com>
-    Aaron Straup Cope <asc@vineyard.net>
-    Lars Thegler <lars@thegler.dk>
-    David Viner <dviner@yahoo-inc.com>
-    Mac Yang <mac@proofpoint.com>
+    Contributors (in alphabetical order):
+    Hutton Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco,
+    James FitzGibbon, Carl Franks, Dennis Gregorovic, Paul
+    Harrington, David Hull, Robert Jacobson, Jeff Macdonald, Markus
+    Peter, Brett Rann, Erik Selberg, Aaron Straup Cope, Lars Thegler,
+    David Viner, Mac Yang.
 
 =head1 COPYRIGHT AND LICENSE
 
