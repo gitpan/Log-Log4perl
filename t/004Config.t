@@ -202,7 +202,7 @@ is(Log::Log4perl::Appender::TestBuffer->by_name("A1")->buffer(),
 ######################################################################
 open STDERR, ">$TMP_FILE";
 open IN, "<$TMP_FILE" or die "Cannot open $TMP_FILE";
-sub readwarn { return scalar <IN>; }
+sub readwarn { return (scalar <IN>) || ''; }
 END { close IN }
 
 Log::Log4perl->init(\ <<EOT);
@@ -212,6 +212,8 @@ EOT
 like(readwarn(), qr/looks suspicious: No loggers/, 
      "Test integrity check on empty conf file");
 
+close STDERR;
+close IN;
 unlink $TMP_FILE;
 
 ######################################################################
@@ -233,6 +235,8 @@ EOT
 
 is(readwarn(), "", "Autocorrecting rootLogger/rootlogger typo");
 
+close STDERR;
+close IN;
 unlink $TMP_FILE;
 
 ######################################################################
@@ -255,4 +259,6 @@ EOT
 like(readwarn(), qr/looks suspicious: No loggers/, 
      "Test integrity check on totally misspelled rootLogger typo");
 
+close STDERR;
+close IN;
 unlink $TMP_FILE;

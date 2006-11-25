@@ -11,6 +11,14 @@ use Log::Log4perl qw(:easy);
 use Log::Log4perl::Appender::TestBuffer;
 use File::Spec;
 
+BEGIN {
+    if ($] < 5.006) {
+        plan skip_all => "Only with perl >= 5.006";
+    } else {
+        plan tests => 19;
+    }
+}
+
 my $WORK_DIR = "tmp";
 if(-d "t") {
     $WORK_DIR = "t/tmp";
@@ -129,7 +137,7 @@ Log::Log4perl->init_and_watch($testconf, 1);
 
 DEBUG("first");
   my $buf = Log::Log4perl::Appender::TestBuffer->by_name("Testbuffer");
-  like($buf->buffer(), qr/027Watch2.t 130> first/, 
+  like($buf->buffer(), qr/027Watch2.t 138> first/, 
        "init-and-watch caller level");
   $buf->buffer("");
 
@@ -137,7 +145,7 @@ conf_file_write();
 sleep(1);
 DEBUG("second");
   $buf = Log::Log4perl::Appender::TestBuffer->by_name("Testbuffer");
-  like($buf->buffer(), qr/027Watch2.t 138> second/,
+  like($buf->buffer(), qr/027Watch2.t 146> second/,
        "init-and-watch caller level");
   $buf->buffer("");
 
@@ -145,13 +153,13 @@ conf_file_write();
 sleep(1);
 DEBUG("third");
   $buf = Log::Log4perl::Appender::TestBuffer->by_name("Testbuffer");
-  like($buf->buffer(), qr/027Watch2.t 146> third/,
+  like($buf->buffer(), qr/027Watch2.t 154> third/,
        "init-and-watch caller level");
   $buf->buffer("");
 
 DEBUG("fourth");
   $buf = Log::Log4perl::Appender::TestBuffer->by_name("Testbuffer");
-  like($buf->buffer(), qr/027Watch2.t 152> fourth/,
+  like($buf->buffer(), qr/027Watch2.t 160> fourth/,
        "init-and-watch caller level");
   $buf->buffer("");
 
@@ -168,5 +176,4 @@ EOT
     close FILE;
 }
 
-BEGIN {plan tests => 19};
 unlink $testconf;
