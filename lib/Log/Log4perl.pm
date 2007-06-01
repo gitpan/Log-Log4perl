@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '1.10';
+our $VERSION = '1.11';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -123,7 +123,7 @@ sub import {
         ${$caller_pkg . '::_default_logger'} = $logger;
         
             # Define DEBUG, INFO, etc. routines in caller's package
-        for(qw(DEBUG INFO WARN ERROR FATAL)) {
+        for(qw(TRACE DEBUG INFO WARN ERROR FATAL)) {
             my $level   = $_;
             my $lclevel = lc($_);
             *{"$caller_pkg\::$_"} = sub { 
@@ -649,8 +649,8 @@ and I<INFO> messages are suppressed.
 
 =head2 Log Levels
 
-There are five predefined log levels: C<FATAL>, C<ERROR>, C<WARN>, C<INFO> 
-and C<DEBUG> (in descending priority). Your configured logging level
+There are five predefined log levels: C<FATAL>, C<ERROR>, C<WARN>, C<INFO>,
+C<DEBUG>, and C<TRACE> (in descending priority). Your configured logging level
 has to at least match the priority of the logging message.
 
 If your configured logging level is C<WARN>, then messages logged 
@@ -671,6 +671,7 @@ using the constants defined in C<Log::Log4perl::Level>:
 
     use Log::Log4perl::Level;
 
+    $logger->log($TRACE, "...");
     $logger->log($DEBUG, "...");
     $logger->log($INFO, "...");
     $logger->log($WARN, "...");
@@ -686,6 +687,7 @@ If you need to find out if the currently configured logging
 level would allow a logger's logging statement to go through, use the
 logger's C<is_I<level>()> methods:
 
+    $logger->is_trace()    # True if trace messages would go through
     $logger->is_debug()    # True if debug messages would go through
     $logger->is_info()     # True if info messages would go through
     $logger->is_warn()     # True if warn messages would go through
@@ -2033,12 +2035,13 @@ the C<get> method:
     my $value = Log::Log4perl::MDC->get($key);
 
 If no value has been stored previously under C<$key>, the C<get> method
-will return the string C<"[undef]"> to allow for easy string interpolation
-later on.
+will return C<undef>.
 
 Typically, MDC values are retrieved later on via the C<"%X{...}"> placeholder
-in C<Log::Log4perl::Layout::PatternLayout>.
-For example, an application taking a web request might store the remote host
+in C<Log::Log4perl::Layout::PatternLayout>. If the C<get()> method
+returns C<undef>, the placeholder will expand to the string C<[undef]>.
+
+An application taking a web request might store the remote host
 like
 
     Log::Log4perl::MDC->put("remote_host", $r->headers("HOST"));
@@ -2498,15 +2501,15 @@ our
     Kevin Goess <cpan@goess.org>
 
     Contributors (in alphabetical order):
-    Ateeq Altaf, Jeremy Bopp, Hutton Davidson, Chris R. Donnelly,
-    Matisse Enzer, Hugh Esco, James FitzGibbon, Carl Franks, Dennis
-    Gregorovic, Paul Harrington, David Hull, Robert Jacobson, Jeff
-    Macdonald, Markus Peter, Brett Rann, Erik Selberg, Aaron Straup
-    Cope, Lars Thegler, David Viner, Mac Yang.
+    Ateeq Altaf, Cory Bennett, Jeremy Bopp, Hutton Davidson, Chris R.
+    Donnelly, Matisse Enzer, Hugh Esco, James FitzGibbon, Carl Franks,
+    Dennis Gregorovic, Paul Harrington, David Hull, Robert Jacobson,
+    Jeff Macdonald, Markus Peter, Brett Rann, Erik Selberg, Aaron
+    Straup Cope, Lars Thegler, David Viner, Mac Yang.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2002-2004 by Mike Schilli E<lt>m@perlmeister.comE<gt> and Kevin Goess
+Copyright 2002-2007 by Mike Schilli E<lt>m@perlmeister.comE<gt> and Kevin Goess
 E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify

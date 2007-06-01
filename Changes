@@ -2,6 +2,16 @@
  Revision history for Log::Log4perl
 ##################################################
 
+1.11 (2007/05/29)
+    *   (ms) Added PatternLayout::Multiline code by Cory Bennett to 
+             render multiline messages.
+    *   (ms) Added log level TRACE (lets through even more messages
+             than DEBUG) (suggested by Craig).
+    *   (ms) Added 'syswrite' flag to file appender to have it use
+             'syswrite' instead of 'print', avoiding buffered or
+             interleaving messages originating from different processes
+             (thanks to Evan Miller).
+
 1.10 (2007/03/27)
     *   (kg) Nikita Dedik pointed out that Saturday is missing from 
              @Log::Log4perl::DateFormat::WEEK_DAYS

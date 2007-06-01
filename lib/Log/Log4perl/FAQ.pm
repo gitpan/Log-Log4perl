@@ -1456,10 +1456,16 @@ it comes to logging, Log::Log4perl won't synchronize access to it.
 Depending on your operating system's flush mechanism, buffer size and the size
 of your messages, there's a small chance of an overlap.
 
-A guaranteed way of having messages separated is putting a
-Log::Log4perl::Appender::Synchronized composite appender in 
-between Log::Log4perl and the real appender. It will make sure to
-let messages pass through this virtual gate one by one only. 
+The easiest way to prevent overlapping messages in logfiles is setting the 
+file appender's C<syswrite> flag. This makes sure that 
+C<Log::Log4perl::Appender::File> uses C<syswrite()> (which is guaranteed
+to run uninterrupted) instead of C<print()> which might buffer
+the message or get interrupted by the OS while it is writing.
+
+Another guaranteed way of having messages separated with any kind of
+appender is putting a Log::Log4perl::Appender::Synchronized composite
+appender in between Log::Log4perl and the real appender. It will make
+sure to let messages pass through this virtual gate one by one only.
 
 Here's a sample configuration to synchronize access to a file appender:
 
@@ -2344,6 +2350,60 @@ If you want, you can even specify a different log level or category:
 
     tie *SOMEHANDLE, 'FileHandleLogger',
         level => $INFO, category => "Foo::Bar" or die "tie failed ($!)";
+
+=head2 I want multiline messages rendered line-by-line!
+
+With the standard C<PatternLayout>, if you send a multiline message to
+an appender as in
+
+    use Log::Log4perl qw(:easy);
+    Log
+
+it gets rendered this way:
+
+    2007/04/04 23:23:39 multi
+    line
+    message
+
+If you want each line to be rendered separately according to
+the layout use C<Log::Log4perl::Layout::PatternLayout::Multiline>:
+
+    use Log::Log4perl qw(:easy);
+
+    Log::Log4perl->init(\<<EOT);
+      log4perl.category         = DEBUG, Screen
+      log4perl.appender.Screen = Log::Log4perl::Appender::Screen
+      log4perl.appender.Screen.layout = \\
+        Log::Log4perl::Layout::PatternLayout::Multiline
+      log4perl.appender.Screen.layout.ConversionPattern = %d %m %n
+    EOT
+    
+    DEBUG "some\nmultiline\nmessage";
+
+and you'll get 
+
+    2007/04/04 23:23:39 some 
+    2007/04/04 23:23:39 multiline 
+    2007/04/04 23:23:39 message 
+
+instead.
+
+=head2 I'm on Windows and I'm getting all these 'redefined' messages!
+
+If you're on Windows and are getting warning messages like
+
+  Constant subroutine Log::Log4perl::_INTERNAL_DEBUG redefined at
+    C:/Programme/Perl/lib/constant.pm line 103.
+  Subroutine import redefined at
+    C:/Programme/Perl/site/lib/Log/Log4Perl.pm line 69.
+  Subroutine initialized redefined at
+    C:/Programme/Perl/site/lib/Log/Log4Perl.pm line 207.
+
+then chances are that you're using 'Log::Log4Perl' (wrong uppercase P) 
+instead of the correct 'Log::Log4perl'. Perl on Windows doesn't
+handle this error well and spits out a slew of confusing warning
+messages. But now you know, just use the correct module name and
+you'll be fine.
 
 =cut
 
