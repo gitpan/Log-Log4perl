@@ -2,6 +2,16 @@
  Revision history for Log::Log4perl
 ##################################################
 
+1.15 (2008/02/10)
+    *   (ms) appender_thresholds_adjust() with a parameter of 0 now
+             does nothing (requested by Oliver Koch).
+    *   (kg) Added 'defer_connection' to Socket appender so it's more useful
+             under Apache.
+    *   (ms) [rt.cpan.org #32738] fixed caller_depth for error_warn()
+             (reported by Felix Antonius Wilhelm Ostmann)
+    *   (ms) [rt.cpan.org #32942] fixed get_logger() for subclassed Log4perl
+             (reported by Felix Antonius Wilhelm Ostmann)
+
 1.14 (2007/11/18)
     *   (ms) Fixed test suite bug which surfaced in Darwin because temporary
              files contain '++' which freaked out the sloppy regex match.

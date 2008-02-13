@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '1.14';
+our $VERSION = '1.15';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -337,23 +337,39 @@ sub easy_init { # Initialize the root logger with a screen appender
 ##################################################
 sub get_logger {  # Get an instance (shortcut)
 ##################################################
-    my($class, @args) = @_;
+    # get_logger() can be called in the following ways:
+    #
+    #   (1) Log::Log4perl::get_logger()     => ()
+    #   (2) Log::Log4perl->get_logger()     => ("Log::Log4perl")
+    #   (3) Log::Log4perl::get_logger($cat) => ($cat)
+    #   
+    #   (5) Log::Log4perl->get_logger($cat) => ("Log::Log4perl", $cat)
+    #   (6)   L4pSubclass->get_logger($cat) => ("L4pSubclass", $cat)
 
-    if(!defined $class) {
-        # Called as ::get_logger()
-        unshift(@args, scalar caller());
-    } elsif($class eq __PACKAGE__ and !defined $args[0]) {
-        # Called as ->get_logger()
-        unshift(@args, scalar caller());
-    } elsif($class ne __PACKAGE__) {
-        # Called as ::get_logger($category)
-        unshift(@args, $class);
+    # Note that (4) L4pSubclass->get_logger() => ("L4pSubclass")
+    # is indistinguishable from (3) and therefore can't be allowed.
+    # Wrapper classes always have to specify the category explicitely.
+
+    my $category;
+
+    if(@_ == 0) {
+          # 1
+        $category = scalar caller();
+    } elsif(@_ == 1) {
+          # 2, 3
+        if($_[0] eq __PACKAGE__) {
+              # 2
+            $category = scalar caller();
+        } else {
+            $category = $_[0];
+        }
     } else {
-        # Called as ->get_logger($category)
+          # 5, 6
+        $category = $_[1];
     }
 
     # Delegate this to the logger module
-    return Log::Log4perl::Logger->get_logger(@args);
+    return Log::Log4perl::Logger->get_logger($category);
 }
 
 ##################################################
@@ -368,6 +384,11 @@ sub appender_thresholds_adjust {  # Readjust appender thresholds
         # If someone calls L4p-> and not L4p::
     shift if $_[0] eq __PACKAGE__;
     my($delta, $appenders) = @_;
+
+    if($delta == 0) {
+          # Nothing to do, no delta given.
+        return 1;
+    }
 
     if(defined $appenders) {
             # Map names to objects
@@ -433,7 +454,7 @@ sub infiltrate_lwp {  #
     my $l4p_wrapper = sub {
         my($prio, @message) = @_;
         $Log::Log4perl::caller_depth += 2;
-        get_logger(caller(1))->log($prio, @message);
+        get_logger(scalar caller(1))->log($prio, @message);
         $Log::Log4perl::caller_depth -= 2;
     };
 
@@ -650,7 +671,7 @@ and I<INFO> messages are suppressed.
 
 =head2 Log Levels
 
-There are five predefined log levels: C<FATAL>, C<ERROR>, C<WARN>, C<INFO>,
+There are six predefined log levels: C<FATAL>, C<ERROR>, C<WARN>, C<INFO>,
 C<DEBUG>, and C<TRACE> (in descending priority). Your configured logging level
 has to at least match the priority of the logging message.
 
@@ -2342,6 +2363,32 @@ But don't dispair, there's a solution: Just increase the value
 of C<$Log::Log4perl::caller_depth> (defaults to 0) by one for every
 wrapper that's in between your application and C<Log::Log4perl>,
 then C<Log::Log4perl> will compensate for the difference.
+
+Also, note that if you're using a subclass of Log4perl, like
+
+    package MyL4pWrapper;
+    use Log::Log4perl;
+    our @ISA = qw(Log::Log4perl);
+
+and you want to call get_logger() in your code, like
+
+    use MyL4pWrapper;
+
+    sub some_function {
+        my $logger = MyL4pWrapper->get_logger(__PACKAGE__);
+        $logger->debug("Hey, there.");
+    }
+
+you have to explicitly spell out the category, as in __PACKAGE__ above.
+You can't rely on 
+
+      # Don't do that!
+    MyL4pWrapper->get_logger();
+
+and assume that Log4perl will take the class of the current package
+as the category. (Reason behind this is that Log4perl will think you're
+calling C<get_logger("MyL4pWrapper")> and take "MyL4pWrapper" as the 
+category.)
 
 =head1 Access to Internals
 
