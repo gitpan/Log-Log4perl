@@ -30,6 +30,7 @@ sub new {
         recreate_check_signal   => undef,
         recreate_pid_write      => undef,
         create_at_logtime       => 0,
+        header_text             => undef,
         @options,
     };
 
@@ -119,9 +120,9 @@ sub file_open {
     if($self->{recreate}) {
         $self->{watcher} = Log::Log4perl::Config::Watch->new(
             file           => $self->{filename},
-            ($self->{recreate_check_interval} ?
+            (defined $self->{recreate_check_interval} ?
               (check_interval => $self->{recreate_check_interval}) : ()),
-            ($self->{recreate_check_signal} ?
+            (defined $self->{recreate_check_signal} ?
               (signal => $self->{recreate_check_signal}) : ()),
         );
     }
@@ -142,6 +143,14 @@ sub file_open {
 
     if (defined $self->{utf8}) {
         binmode $self->{fh}, ":utf8";
+    }
+
+    if(defined $self->{header_text}) {
+        if( $self->{header_text} !~ /\n\Z/ ) {
+            $self->{header_text} .= "\n";
+        }
+        my $fh = $self->{fh};
+        print $fh $self->{header_text};
     }
 }
 
@@ -381,7 +390,7 @@ This obviously means that the appender will continue writing to
 a moved file until the next check occurs, in the worst case
 this will happen C<recreate_check_interval> seconds after the file
 has been moved or deleted. If this is undesirable,
-setting C<recreate_check_interval> to 0 will have the appender
+setting C<recreate_check_interval> to 0 will have the
 appender check the file with I<every> call to C<log()>.
 
 =item recreate_check_signal
@@ -417,6 +426,13 @@ user although it is defined in the configuration file. If you set
 C<create_at_logtime> to a true value, the file appender will try to create
 the file at log time. Note that this setting lets permission problems
 sit undetected until log time, which might be undesirable.
+
+=item header_text
+
+If you want Log4perl to print a header into every newly opened
+(or re-opened) logfile, set C<header_text> to either a string
+or a subroutine returning a string. If the message doesn't have a newline,
+a newline at the end of the header will be provided.
 
 =back
 
