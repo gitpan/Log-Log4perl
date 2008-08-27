@@ -2,6 +2,18 @@
  Revision history for Log::Log4perl
 ##################################################
 
+1.18 (2008/08/23)
+    *   (ms) Added explanation that categories and loggers are the same
+             thing (thanks to Rabbit).
+    *   (ms) Fixed t/053Resurrect to work with 5.005_03
+    *   (ms) Added preinit_callback function for init_and_watch()
+    *   (ms) Applied patch by Andy Grundman which speeds up is_LEVEL()
+             calls by skipping unnecessary string concatenations 
+             (http://rt.cpan.org/Ticket/Display.html?id=38537).
+    *   (ms) Applied patch by Jae Gangemi addding a no_warning option to the
+             socket appender
+             (http://rt.cpan.org/Ticket/Display.html?id=34399).
+
 1.17 (2008/07/19)
     *   (ms) Fixed test suite to run on Strawberry Perl on Win32.
     *   (ms) Added 'l4p' as a valid prefix in configuration files (equal

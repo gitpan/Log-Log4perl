@@ -1,5 +1,5 @@
 ######################################################################
-    Log::Log4perl 1.17
+    Log::Log4perl 1.18
 ######################################################################
 
 NAME
@@ -620,10 +620,12 @@ How to use it
     be replaced by the return value of the filter function.
 
 Categories
-    "Log::Log4perl" uses *categories* to determine if a log statement in a
-    component should be executed or suppressed at the current logging level.
-    Most of the time, these categories are just the classes the log
-    statements are located in:
+    Categories are also called "Loggers" in Log4perl, both refer to the the
+    same thing and these terms are used interchangeably. "Log::Log4perl"
+    uses *categories* to determine if a log statement in a component should
+    be executed or suppressed at the current logging level. Most of the
+    time, these categories are just the classes the log statements are
+    located in:
 
         package Candy::Twix;
 
@@ -984,6 +986,21 @@ Cool Tricks
     damaged configuration will be loaded during runtime, triggered either by
     a signal or if the delay period expired and the change is detected. This
     behaviour might change in the future.
+
+    To allow the application to intercept and control a configuration reload
+    in init_and_watch mode, a callback can be specified:
+
+        Log::Log4perl->init_and_watch($conf_file, 10, { 
+                preinit_callback => \&callback });
+
+    If Log4perl determines that the configuration needs to be reloaded, it
+    will call the "preinit_callback" function without parameters. If the
+    callback returns a true value, Log4perl will proceed and reload the
+    configuration. If the callback returns a false value, Log4perl will keep
+    the old configuration and skip reloading it until the next time around.
+    Inside the callback, an application can run all kinds of checks,
+    including accessing the configuration file, which is available via
+    "Log::Log4perl::Config->watcher()->file()".
 
   Variable Substitution
     To avoid having to retype the same expressions over and over again,
@@ -1950,12 +1967,12 @@ AUTHORS
         Contributors (in alphabetical order):
         Ateeq Altaf, Cory Bennett, Jeremy Bopp, Hutton Davidson, Chris R.
         Donnelly, Matisse Enzer, Hugh Esco, James FitzGibbon, Carl Franks,
-        Dennis Gregorovic, Paul Harrington, David Hull, Robert Jacobson,
-        Jeff Macdonald, Markus Peter, Brett Rann, Erik Selberg, Aaron
-        Straup Cope, Lars Thegler, David Viner, Mac Yang.
+        Dennis Gregorovic, Andy Grundman, Paul Harrington, David Hull,
+        Robert Jacobson, Jeff Macdonald, Markus Peter, Brett Rann, Erik
+        Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
 
 COPYRIGHT AND LICENSE
-    Copyright 2002-2007 by Mike Schilli <m@perlmeister.com> and Kevin Goess
+    Copyright 2002-2008 by Mike Schilli <m@perlmeister.com> and Kevin Goess
     <cpan@goess.org>.
 
     This library is free software; you can redistribute it and/or modify it

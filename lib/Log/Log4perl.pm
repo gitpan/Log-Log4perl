@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '1.17';
+our $VERSION = '1.18';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -1133,6 +1133,8 @@ value of the filter function.
 
 =head1 Categories
 
+B<Categories are also called "Loggers" in Log4perl, both refer
+to the the same thing and these terms are used interchangeably.>
 C<Log::Log4perl> uses I<categories> to determine if a log statement in
 a component should be executed or suppressed at the current logging level.
 Most of the time, these categories are just the classes the log statements
@@ -1525,6 +1527,21 @@ or other fatal error, a running application will stop with C<die> if
 this damaged configuration will be loaded during runtime, triggered
 either by a signal or if the delay period expired and the change is 
 detected. This behaviour might change in the future.
+
+To allow the application to intercept and control a configuration reload
+in init_and_watch mode, a callback can be specified:
+
+    Log::Log4perl->init_and_watch($conf_file, 10, { 
+            preinit_callback => \&callback });
+
+If Log4perl determines that the configuration needs to be reloaded, it will
+call the C<preinit_callback> function without parameters. If the callback
+returns a true value, Log4perl will proceed and reload the configuration.  If
+the callback returns a false value, Log4perl will keep the old configuration
+and skip reloading it until the next time around.  Inside the callback, an
+application can run all kinds of checks, including accessing the configuration
+file, which is available via
+C<Log::Log4perl::Config-E<gt>watcher()-E<gt>file()>.
 
 =head2 Variable Substitution
 
@@ -2573,13 +2590,13 @@ our
     Contributors (in alphabetical order):
     Ateeq Altaf, Cory Bennett, Jeremy Bopp, Hutton Davidson, Chris R.
     Donnelly, Matisse Enzer, Hugh Esco, James FitzGibbon, Carl Franks,
-    Dennis Gregorovic, Paul Harrington, David Hull, Robert Jacobson,
-    Jeff Macdonald, Markus Peter, Brett Rann, Erik Selberg, Aaron
-    Straup Cope, Lars Thegler, David Viner, Mac Yang.
+    Dennis Gregorovic, Andy Grundman, Paul Harrington, David Hull,
+    Robert Jacobson, Jeff Macdonald, Markus Peter, Brett Rann, Erik
+    Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2002-2007 by Mike Schilli E<lt>m@perlmeister.comE<gt> and Kevin Goess
+Copyright 2002-2008 by Mike Schilli E<lt>m@perlmeister.comE<gt> and Kevin Goess
 E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
