@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '1.18';
+our $VERSION = '1.19';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -100,8 +100,6 @@ sub import {
 
     if(exists $tags{':levels'}) {
         # Export log levels ($DEBUG, $INFO etc.) from Log4perl::Level
-        my $caller_pkg = caller();
-
         for my $key (keys %Log::Log4perl::Level::PRIORITY) {
             my $name  = "$caller_pkg\::$key";
                # Need to split this up in two lines, or CVS will
@@ -354,12 +352,12 @@ sub get_logger {  # Get an instance (shortcut)
 
     if(@_ == 0) {
           # 1
-        $category = scalar caller();
+        $category = scalar caller($Log::Log4perl::caller_depth);
     } elsif(@_ == 1) {
           # 2, 3
         if($_[0] eq __PACKAGE__) {
               # 2
-            $category = scalar caller();
+            $category = scalar caller($Log::Log4perl::caller_depth);
         } else {
             $category = $_[0];
         }
@@ -429,8 +427,9 @@ sub appender_by_name {  # Get an appender by name
 
     my($name) = @_;
 
-    if(exists $Log::Log4perl::Logger::APPENDER_BY_NAME{
-                $name}) {
+    if(defined $name and
+       exists $Log::Log4perl::Logger::APPENDER_BY_NAME{
+                 $name}) {
         return $Log::Log4perl::Logger::APPENDER_BY_NAME{
                  $name}->{appender};
     } else {
@@ -754,6 +753,17 @@ just chain together to a single string. Therefore
     $logger->debug("Hello World!");
 
 are identical.
+
+Note that even if one of the methods above returns true, it doesn't 
+necessarily mean that the message will actually get logged. 
+What is_debug() checks is that
+the logger used is configured to let a message of the given priority 
+(DEBUG) through. But after this check, Log4perl will eventually apply custom 
+filters and forward the message to one or more appenders. None of this
+gets checked by is_xxx(), for the simple reason that it's 
+impossible to know what a custom filter does with a message without
+having the actual message or what an appender does to a message without
+actually having it log it.
 
 =head2 Log and die or warn
 
@@ -1828,7 +1838,7 @@ You'd do such as follows:
 And that's it! create_custom_level() creates the following functions /
 variables for level FOO:
 
-    $FOO_INT        # integer to use in toLevel()
+    $FOO_INT        # integer to use in L4p::Level::to_level()
     $logger->foo()  # log function to log if level = FOO
     $logger->is_foo()   # true if current level is >= FOO
 
@@ -2589,10 +2599,11 @@ our
 
     Contributors (in alphabetical order):
     Ateeq Altaf, Cory Bennett, Jeremy Bopp, Hutton Davidson, Chris R.
-    Donnelly, Matisse Enzer, Hugh Esco, James FitzGibbon, Carl Franks,
-    Dennis Gregorovic, Andy Grundman, Paul Harrington, David Hull,
-    Robert Jacobson, Jeff Macdonald, Markus Peter, Brett Rann, Erik
-    Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
+    Donnelly, Matisse Enzer, Hugh Esco, Anthony Foiani, James
+    FitzGibbon, Carl Franks, Dennis Gregorovic, Andy Grundman, Paul
+    Harrington, David Hull, Robert Jacobson, Jeff Macdonald, Markus
+    Peter, Brett Rann, Peter Rabbitson, Erik Selberg, Aaron Straup
+    Cope, Lars Thegler, David Viner, Mac Yang.
 
 =head1 COPYRIGHT AND LICENSE
 

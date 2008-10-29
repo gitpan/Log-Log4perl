@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Log-Log4perl
-version:             1.18
+version:             1.19
 abstract:            Log4j implementation for Perl
 license:             ~
 generated_by:        ExtUtils::MakeMaker version 6.31
