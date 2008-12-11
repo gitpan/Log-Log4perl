@@ -16,7 +16,7 @@ use Log::Log4perl::Appender;
 
 use constant _INTERNAL_DEBUG => 1;
 
-our $VERSION = '1.19';
+our $VERSION = '1.20';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -2209,7 +2209,7 @@ The previously mentioned method C<appender_by_name()> returns a
 referrence to the I<real> appender object. If you want access to the
 wrapper class (e.g. if you want to modify the appender's threshold),
 use the hash C<$Log::Log4perl::Logger::APPENDER_BY_NAME{...}> instead,
-which holds references all appender wrapper objects.
+which holds references to all appender wrapper objects.
 
 =head2 Modify appender thresholds
 
@@ -2449,7 +2449,9 @@ A call to C<Log::Log4perl-E<gt>infiltrate_lwp()> does exactly this.
 In a very rude way, it pulls the rug from under LWP::UserAgent and transforms
 its C<debug/conn> messages into C<debug()> calls of loggers of the category
 C<"LWP::UserAgent">. Similarily, C<LWP::UserAgent>'s C<trace> messages 
-are turned into C<Log::Log4perl>'s C<info()> method calls.
+are turned into C<Log::Log4perl>'s C<info()> method calls. Note that this
+only works for LWP::UserAgent versions E<lt> 5.822, because this (and
+probably later) versions miss debugging functions entirely.
 
 =item Suppressing 'duplicate' LOGDIE messages
 
