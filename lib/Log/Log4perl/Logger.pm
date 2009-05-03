@@ -95,7 +95,7 @@ sub DESTROY {
 ##################################################
 sub reset {
 ##################################################
-    $ROOT_LOGGER        = __PACKAGE__->_new("", $DEBUG);
+    $ROOT_LOGGER        = __PACKAGE__->_new("", $OFF);
 #    $LOGGERS_BY_NAME    = {};  #leave this alone, it's used by 
                                 #reset_all_output_methods when 
                                 #the config changes
@@ -231,12 +231,12 @@ sub set_output_methods {
                   if _INTERNAL_DEBUG;
             $self->{$levelname}      = $coderef;
             $self->{"is_$levelname"} = generate_is_xxx_coderef("1");
-            #$self->{"is_$levelname"} = sub { 1 };
+            print "Setting is_$levelname to 1\n" if _INTERNAL_DEBUG;
         }else{
             print "  ($priority{$levelname} > $level)\n" if _INTERNAL_DEBUG;
             $self->{$levelname}      = $noop;
             $self->{"is_$levelname"} = generate_is_xxx_coderef("0");
-            #$self->{"is_$levelname"} = sub { 0 };
+            print "Setting is_$levelname to 0\n" if _INTERNAL_DEBUG;
         }
 
         print("  Setting [$self] $self->{category}.$levelname to ",
@@ -591,8 +591,6 @@ sub add_appender {
 ##################################################
     my($self, $appender, $dont_reset_all) = @_;
 
-    my $not_to_dispatcher = 0;
-
         # We take this as an indicator that we're initialized.
     $INITIALIZED = 1;
 
@@ -600,18 +598,15 @@ sub add_appender {
 
     $self->{num_appenders}++;  #should this be inside the unless?
 
+      # Add newly created appender to the end of the appender array
     unless (grep{$_ eq $appender_name} @{$self->{appender_names}}){
         $self->{appender_names} = [sort @{$self->{appender_names}}, 
                                         $appender_name];
     }
 
-    if ($APPENDER_BY_NAME{$appender_name}) {
-        $not_to_dispatcher = 1;
-    }else{
-        $APPENDER_BY_NAME{$appender_name} = $appender;
-    }
+    $APPENDER_BY_NAME{$appender_name} = $appender;
 
-    &reset_all_output_methods
+    reset_all_output_methods
                 unless $dont_reset_all;  # keep us from getting overworked
                                          # if it's  the config file calling us
 

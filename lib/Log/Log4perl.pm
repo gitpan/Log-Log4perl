@@ -14,9 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-use constant _INTERNAL_DEBUG => 1;
-
-our $VERSION = '1.21';
+our $VERSION = '1.22';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -371,9 +369,23 @@ sub get_logger {  # Get an instance (shortcut)
 }
 
 ##################################################
-sub appenders {  # Get all defined appenders hashref
+sub appenders {  # Get a hashref of all defined appender wrappers
 ##################################################
     return \%Log::Log4perl::Logger::APPENDER_BY_NAME;
+}
+
+##################################################
+sub add_appender { # Add an appender to the system, but don't assign
+	           # it to a logger yet
+##################################################
+    my($class, $appender) = @_;
+
+    my $name = $appender->name();
+    die "Mandatory parameter 'name' missing in appender" unless defined $name;
+
+      # Make it known by name in the Log4perl universe
+      # (so that composite appenders can find it)
+    Log::Log4perl->appenders()->{ $name } = $appender;
 }
 
 ##################################################
@@ -420,7 +432,7 @@ sub appender_thresholds_adjust {  # Readjust appender thresholds
 }
 
 ##################################################
-sub appender_by_name {  # Get an appender by name
+sub appender_by_name {  # Get a (real) appender by name
 ##################################################
         # If someone calls L4p->appender_by_name and not L4p::appender_by_name
     shift if $_[0] eq __PACKAGE__;
@@ -660,13 +672,15 @@ C<Log::Log4perl> works with inheritance: The config file above didn't
 specify anything about C<My::MegaPackage>. 
 And yet, we've defined a logger of the category 
 C<My::MegaPackage>.
-In this case, C<Log::Log4perl> will walk up the class hierarchy
+In this case, C<Log::Log4perl> will walk up the namespace hierarchy
 (C<My> and then we're at the root) to figure out if a log level is
 defined somewhere. In the case above, the log level at the root
 (root I<always> defines a log level, but not necessarily an appender)
 defines that 
 the log level is supposed to be C<ERROR> -- meaning that I<DEBUG>
-and I<INFO> messages are suppressed.
+and I<INFO> messages are suppressed. Note that this 'inheritance' is
+unrelated to Perl's class inheritance, it is merely related to the
+logger namespace.
 
 =head2 Log Levels
 
@@ -725,6 +739,7 @@ Also available are a series of more Java-esque functions which return
 the same values. These are of the format C<isI<Level>Enabled()>,
 so C<$logger-E<gt>isDebugEnabled()> is synonymous to 
 C<$logger-E<gt>is_debug()>.
+
 
 These level checking functions
 will come in handy later, when we want to block unnecessary
@@ -916,6 +931,37 @@ This will cause only messages originating from
 this specific category logger to be logged in the defined format
 and locations.
 
+=head2 Logging newlines
+
+There's some controversy between different logging systems as to when and 
+where newlines are supposed to be added to logged messages.
+
+The Log4perl way is that a logging statement I<should not> 
+contain a newline:
+
+    $logger->info("Some message");
+    $logger->info("Another message");
+
+If this is supposed to end up in a log file like
+
+    Some message
+    Another message
+
+then an appropriate appender layout like "%m%n" will take care of adding
+a newline at the end of each message to make sure every message is 
+printed on its own line.
+
+Other logging systems, Log::Dispatch in particular, recommend adding the
+newline to the log statement. This doesn't work well, however, if you, say,
+replace your file appender by a database appender, and all of a sudden
+those newlines scattered around the code don't make sense anymore.
+
+Assigning matching layouts to different appenders and leaving newlines
+out of the code solves this problem. If you inherited code that has logging
+statements with newlines and want to make it work with Log4perl, read
+the L<Log::Log4perl::Layout::PatternLayout> documentation on how to 
+accomplish that.
+
 =head2 Configuration files
 
 As shown above, you can define C<Log::Log4perl> loggers both from within
@@ -1098,7 +1144,7 @@ You can save serious time if you're logging something like
 
         # Expensive in non-debug mode!
     for (@super_long_array) {
-        $logger->debug("Element: $_\n");
+        $logger->debug("Element: $_");
     }
 
 and C<@super_long_array> is fairly big, so looping through it is pretty
@@ -1110,7 +1156,7 @@ In this case, use this instead:
         # Cheap in non-debug mode!
     if($logger->is_debug()) {
         for (@super_long_array) {
-            $logger->debug("Element: $_\n");
+            $logger->debug("Element: $_");
         }
     }
 
@@ -2206,7 +2252,7 @@ C<Log::Dispatch::FileRotate> don't support all of Log::Log4perl's
 appender control mechanisms (like appender thresholds).
 
 The previously mentioned method C<appender_by_name()> returns a
-referrence to the I<real> appender object. If you want access to the
+reference to the I<real> appender object. If you want access to the
 wrapper class (e.g. if you want to modify the appender's threshold),
 use the hash C<$Log::Log4perl::Logger::APPENDER_BY_NAME{...}> instead,
 which holds references to all appender wrapper objects.
@@ -2573,7 +2619,7 @@ http://www.vipan.com/htdocs/log4jhelp.html
 
 =item [4]
 
-The Log::Log4perl project home page: http://log4perl.sourceforge.net
+The Log::Log4perl project home page: http://log4perl.com
 
 =back
 
@@ -2589,7 +2635,11 @@ L<Log::Log4perl::NDC|Log::Log4perl::NDC>,
 
 =head1 AUTHORS
 
-Please send bug reports or requests for enhancements to the authors via 
+Please contribute patches to the project page on Github:
+
+    http://github.com/mschilli/log4perl
+
+Bug reports or requests for enhancements to the authors via 
 our
 
     MAILING LIST (questions, bug reports, suggestions/patches): 
@@ -2600,16 +2650,16 @@ our
     Kevin Goess <cpan@goess.org>
 
     Contributors (in alphabetical order):
-    Ateeq Altaf, Cory Bennett, Jeremy Bopp, Hutton Davidson, Chris R.
-    Donnelly, Matisse Enzer, Hugh Esco, Anthony Foiani, James
-    FitzGibbon, Carl Franks, Dennis Gregorovic, Andy Grundman, Paul
-    Harrington, David Hull, Robert Jacobson, Jeff Macdonald, Markus
-    Peter, Brett Rann, Peter Rabbitson, Erik Selberg, Aaron Straup
-    Cope, Lars Thegler, David Viner, Mac Yang.
+    Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
+    Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
+    Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
+    Grundman, Paul Harrington, David Hull, Robert Jacobson, Jeff
+    Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
+    Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2002-2008 by Mike Schilli E<lt>m@perlmeister.comE<gt> and Kevin Goess
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> and Kevin Goess
 E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify

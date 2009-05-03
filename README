@@ -1,5 +1,5 @@
 ######################################################################
-    Log::Log4perl 1.21
+    Log::Log4perl 1.22
 ######################################################################
 
 NAME
@@ -169,11 +169,13 @@ How to use it
     ones to suppress? "Log::Log4perl" works with inheritance: The config
     file above didn't specify anything about "My::MegaPackage". And yet,
     we've defined a logger of the category "My::MegaPackage". In this case,
-    "Log::Log4perl" will walk up the class hierarchy ("My" and then we're at
-    the root) to figure out if a log level is defined somewhere. In the case
-    above, the log level at the root (root *always* defines a log level, but
-    not necessarily an appender) defines that the log level is supposed to
-    be "ERROR" -- meaning that *DEBUG* and *INFO* messages are suppressed.
+    "Log::Log4perl" will walk up the namespace hierarchy ("My" and then
+    we're at the root) to figure out if a log level is defined somewhere. In
+    the case above, the log level at the root (root *always* defines a log
+    level, but not necessarily an appender) defines that the log level is
+    supposed to be "ERROR" -- meaning that *DEBUG* and *INFO* messages are
+    suppressed. Note that this 'inheritance' is unrelated to Perl's class
+    inheritance, it is merely related to the logger namespace.
 
   Log Levels
     There are six predefined log levels: "FATAL", "ERROR", "WARN", "INFO",
@@ -411,6 +413,37 @@ How to use it
     specific category logger to be logged in the defined format and
     locations.
 
+  Logging newlines
+    There's some controversy between different logging systems as to when
+    and where newlines are supposed to be added to logged messages.
+
+    The Log4perl way is that a logging statement *should not* contain a
+    newline:
+
+        $logger->info("Some message");
+        $logger->info("Another message");
+
+    If this is supposed to end up in a log file like
+
+        Some message
+        Another message
+
+    then an appropriate appender layout like "%m%n" will take care of adding
+    a newline at the end of each message to make sure every message is
+    printed on its own line.
+
+    Other logging systems, Log::Dispatch in particular, recommend adding the
+    newline to the log statement. This doesn't work well, however, if you,
+    say, replace your file appender by a database appender, and all of a
+    sudden those newlines scattered around the code don't make sense
+    anymore.
+
+    Assigning matching layouts to different appenders and leaving newlines
+    out of the code solves this problem. If you inherited code that has
+    logging statements with newlines and want to make it work with Log4perl,
+    read the Log::Log4perl::Layout::PatternLayout documentation on how to
+    accomplish that.
+
   Configuration files
     As shown above, you can define "Log::Log4perl" loggers both from within
     your Perl code or from configuration files. The latter have the
@@ -587,7 +620,7 @@ How to use it
 
             # Expensive in non-debug mode!
         for (@super_long_array) {
-            $logger->debug("Element: $_\n");
+            $logger->debug("Element: $_");
         }
 
     and @super_long_array is fairly big, so looping through it is pretty
@@ -598,7 +631,7 @@ How to use it
             # Cheap in non-debug mode!
         if($logger->is_debug()) {
             for (@super_long_array) {
-                $logger->debug("Element: $_\n");
+                $logger->debug("Element: $_");
             }
         }
 
@@ -1627,11 +1660,11 @@ Cool Tricks
     "Log::Dispatch::FileRotate" don't support all of Log::Log4perl's
     appender control mechanisms (like appender thresholds).
 
-    The previously mentioned method "appender_by_name()" returns a
-    referrence to the *real* appender object. If you want access to the
-    wrapper class (e.g. if you want to modify the appender's threshold), use
-    the hash $Log::Log4perl::Logger::APPENDER_BY_NAME{...} instead, which
-    holds references to all appender wrapper objects.
+    The previously mentioned method "appender_by_name()" returns a reference
+    to the *real* appender object. If you want access to the wrapper class
+    (e.g. if you want to modify the appender's threshold), use the hash
+    $Log::Log4perl::Logger::APPENDER_BY_NAME{...} instead, which holds
+    references to all appender wrapper objects.
 
   Modify appender thresholds
     To conveniently adjust appender thresholds (e.g. because a script uses
@@ -1956,7 +1989,7 @@ REFERENCES
     [3] Vipan Singla, "Don't Use System.out.println! Use Log4j.",
         http://www.vipan.com/htdocs/log4jhelp.html
 
-    [4] The Log::Log4perl project home page: http://log4perl.sourceforge.net
+    [4] The Log::Log4perl project home page: http://log4perl.com
 
 SEE ALSO
     Log::Log4perl::Config, Log::Log4perl::Appender,
@@ -1965,8 +1998,11 @@ SEE ALSO
     Log::Log4perl::JavaMap Log::Log4perl::NDC,
 
 AUTHORS
-    Please send bug reports or requests for enhancements to the authors via
-    our
+    Please contribute patches to the project page on Github:
+
+        http://github.com/mschilli/log4perl
+
+    Bug reports or requests for enhancements to the authors via our
 
         MAILING LIST (questions, bug reports, suggestions/patches): 
         log4perl-devel@lists.sourceforge.net
@@ -1976,15 +2012,15 @@ AUTHORS
         Kevin Goess <cpan@goess.org>
 
         Contributors (in alphabetical order):
-        Ateeq Altaf, Cory Bennett, Jeremy Bopp, Hutton Davidson, Chris R.
-        Donnelly, Matisse Enzer, Hugh Esco, Anthony Foiani, James
-        FitzGibbon, Carl Franks, Dennis Gregorovic, Andy Grundman, Paul
-        Harrington, David Hull, Robert Jacobson, Jeff Macdonald, Markus
-        Peter, Brett Rann, Peter Rabbitson, Erik Selberg, Aaron Straup
-        Cope, Lars Thegler, David Viner, Mac Yang.
+        Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
+        Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
+        Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
+        Grundman, Paul Harrington, David Hull, Robert Jacobson, Jeff
+        Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
+        Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
 
 COPYRIGHT AND LICENSE
-    Copyright 2002-2008 by Mike Schilli <m@perlmeister.com> and Kevin Goess
+    Copyright 2002-2009 by Mike Schilli <m@perlmeister.com> and Kevin Goess
     <cpan@goess.org>.
 
     This library is free software; you can redistribute it and/or modify it

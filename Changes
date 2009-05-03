@@ -2,6 +2,16 @@
  Revision history for Log::Log4perl
 ##################################################
 
+1.22 (2009/05/02)
+    *   (ms) is_xxx() returned true prior to L4p initialization. Fixed it
+             and adapted test suite.
+    *   (ms) Added test cases on syswrite in recreate mode
+    *   (ms) Applied patch by Jens Berthold <log4perl@jebecs.de> to
+             avoid semaphore cleanup in spawned children.
+    *   (ms) Added %m{chomp} feature, 'message_chomp_before_newline' option,
+             and documentation on newlines and logging messages, all 
+             suggested by Tim Bunce (see PatternLayout).
+
 1.21 (2009/03/16)
     *   (ms) Documentation typos fixed, reported by Breno G. de Oliveira
              [rt.cpan.org #42428].
