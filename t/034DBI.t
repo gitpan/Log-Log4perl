@@ -11,19 +11,29 @@ use strict;
 
 BEGIN {
     eval {
+        require DBI;
         require DBD::CSV;
         require SQL::Statement;
-        #die "" if $SQL::Statement::VERSION < 1.005;
+        die if $DBI::VERSION < 1.607;
+        die if $DBD::CSV::VERSION < 0.22;
+        die if $SQL::Statement::VERSION < 1.20;
     };
     if ($@) {
-        plan skip_all => "DBD::CSV or SQL::Statement 1.005 not installed, skipping tests\n";
+        plan skip_all => "DBI 1.607 or DBD::CSV 0.22 or SQL::Statement 1.20 not installed, skipping tests\n";
     }else{
         plan tests => 32;
     }
 }
 
+END {
+    unlink "t/tmp/log4perltest";
+    rmdir "t/tmp";
+}
+
+mkdir "t/tmp" unless -d "t/tmp";
+
 require DBI;
-my $dbh = DBI->connect('DBI:CSV:f_dir=t/tmp','testuser','testpw',{ PrintError => 1 });
+my $dbh = DBI->connect('DBI:CSV:f_dir=t/tmp','testuser','testpw',{ RaiseError => 1, PrintError => 1 });
 
 $dbh->do('DROP TABLE log4perltest') if -e 't/tmp/log4perltest';
 
@@ -133,8 +143,8 @@ EOL
 
 # setting is WARN so the debug message should not go through
 $logger->debug('debug message',99,'foo','bar');
-$logger->warn('warning message missing two params',99);
-$logger->warn('another warning to kick the buffer',99);
+$logger->warn('warning message with two params',99, 'foo', 'bar');
+$logger->warn('another warning to kick the buffer',99, 'foo', 'bar');
 
 my $sth = $dbh->prepare('select * from log4perltest'); 
 $sth->execute;
@@ -161,12 +171,12 @@ is($row->[7], 'bar');
 #these two rows should have undef for the final two params
 $row = $sth->fetchrow_arrayref;
 is($row->[0], 'WARN');
-is($row->[1], 'warning message missing two params');
+is($row->[1], 'warning message with two params');
 is($row->[3], '99');
 is($row->[4], 'groceries.beer');
 is($row->[5], 'main');
-is($row->[7], undef);
-is($row->[6], undef);
+is($row->[6], 'foo');
+is($row->[7], 'bar');
 
 $row = $sth->fetchrow_arrayref;
 is($row->[0], 'WARN');
@@ -174,8 +184,8 @@ is($row->[1], 'another warning to kick the buffer');
 is($row->[3], '99');
 is($row->[4], 'groceries.beer');
 is($row->[5], 'main');
-is($row->[7], undef);
-is($row->[6], undef);
+is($row->[6], 'foo');
+is($row->[7], 'bar');
 #that should be all
 ok(!$sth->fetchrow_arrayref);
 

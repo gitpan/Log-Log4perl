@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.22';
+our $VERSION = '1.23';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -273,6 +273,7 @@ sub easy_init { # Initialize the root logger with a screen appender
 
     my %default = ( level    => $DEBUG,
                     file     => "STDERR",
+                    utf8     => undef,
                     category => "",
                     layout   => "%d %m%n",
                   );
@@ -297,11 +298,13 @@ sub easy_init { # Initialize the root logger with a screen appender
 
         if($logger->{file} =~ /^stderr$/i) {
             $app = Log::Log4perl::Appender->new(
-                "Log::Log4perl::Appender::Screen");
+                "Log::Log4perl::Appender::Screen",
+                utf8 => $logger->{utf8});
         } elsif($logger->{file} =~ /^stdout$/i) {
             $app = Log::Log4perl::Appender->new(
                 "Log::Log4perl::Appender::Screen",
-                stderr => 0);
+                stderr => 0,
+                utf8   => $logger->{utf8});
         } else {
             my $binmode;
             if($logger->{file} =~ s/^(:.*?)>/>/) {
@@ -314,6 +317,7 @@ sub easy_init { # Initialize the root logger with a screen appender
                 "Log::Log4perl::Appender::File",
                 filename => $logger->{file},
                 mode     => $mode,
+                utf8     => $logger->{utf8},
                 binmode  => $binmode,
             );
         }
@@ -1578,6 +1582,11 @@ to about 85% of Log::Log4perl's normal execution speed for suppressed
 statements. For details, check out L<"Performance">. For more info
 on the signal handler, look for L<Log::Log4perl::Config::Watch/"SIGNAL MODE">.
 
+If you have a somewhat long delay set between physical config file checks
+or don't want to use the signal associated with the config file watcher,
+you can trigger a configuration reload at the next possible time by
+calling C<Log::Log4perl::Config-E<gt>watcher-E<gt>force_next_check()>.
+
 One thing to watch out for: If the configuration file contains a syntax
 or other fatal error, a running application will stop with C<die> if
 this damaged configuration will be loaded during runtime, triggered
@@ -1987,6 +1996,7 @@ C<%d %m%n> for C<layout>:
 
     Log::Log4perl->easy_init( { level    => $DEBUG,
                                 file     => ">test.log",
+                                utf8     => 1,
                                 category => "Bar::Twix",
                                 layout   => '%F{1}-%L-%M: %m%n' } );
 
@@ -1995,15 +2005,11 @@ The C<file> parameter takes file names preceded by C<"E<gt>">
 cause C<Log::Log4perl::Appender::File> appenders to be created behind
 the scenes. Also the keywords C<STDOUT> and C<STDERR> (no C<E<gt>> or
 C<E<gt>E<gt>>) are recognized, which will utilize and configure
-C<Log::Log4perl::Appender::Screen> appropriately.
-
-If a file appender receives Unicode strings, use
-
-    file => ":utf8> test.log"
-
-to establish a utf8 line discpline on the file, otherwise you'll get
-a 'wide character in print' warning message and probably not what
-you'd expect as output.
+C<Log::Log4perl::Appender::Screen> appropriately. The C<utf8> flag,
+if set to a true value, runs a C<binmode> command on the file handle
+to establish a utf8 line discpline on the file, otherwise you'll get a
+'wide character in print' warning message and probably not what you'd
+expect as output.
 
 The stealth loggers can be used in different packages, you just need to make
 sure you're calling the "use" function in every package you're using

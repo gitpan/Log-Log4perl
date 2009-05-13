@@ -1,5 +1,5 @@
 ######################################################################
-    Log::Log4perl 1.22
+    Log::Log4perl 1.23
 ######################################################################
 
 NAME
@@ -1023,6 +1023,11 @@ Cool Tricks
     info on the signal handler, look for "SIGNAL MODE" in
     Log::Log4perl::Config::Watch.
 
+    If you have a somewhat long delay set between physical config file
+    checks or don't want to use the signal associated with the config file
+    watcher, you can trigger a configuration reload at the next possible
+    time by calling "Log::Log4perl::Config->watcher->force_next_check()".
+
     One thing to watch out for: If the configuration file contains a syntax
     or other fatal error, a running application will stop with "die" if this
     damaged configuration will be loaded during runtime, triggered either by
@@ -1405,6 +1410,7 @@ Cool Tricks
 
         Log::Log4perl->easy_init( { level    => $DEBUG,
                                     file     => ">test.log",
+                                    utf8     => 1,
                                     category => "Bar::Twix",
                                     layout   => '%F{1}-%L-%M: %m%n' } );
 
@@ -1413,13 +1419,9 @@ Cool Tricks
     "Log::Log4perl::Appender::File" appenders to be created behind the
     scenes. Also the keywords "STDOUT" and "STDERR" (no ">" or ">>") are
     recognized, which will utilize and configure
-    "Log::Log4perl::Appender::Screen" appropriately.
-
-    If a file appender receives Unicode strings, use
-
-        file => ":utf8> test.log"
-
-    to establish a utf8 line discpline on the file, otherwise you'll get a
+    "Log::Log4perl::Appender::Screen" appropriately. The "utf8" flag, if set
+    to a true value, runs a "binmode" command on the file handle to
+    establish a utf8 line discpline on the file, otherwise you'll get a
     'wide character in print' warning message and probably not what you'd
     expect as output.
 

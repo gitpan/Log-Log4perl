@@ -19,6 +19,13 @@ BEGIN {
     }
 }
 
+END {
+    unlink "t/tmp/log4perltest";
+    rmdir "t/tmp";
+}
+
+mkdir "t/tmp" unless -d "t/tmp";
+
 require DBI;
 my $dbh = DBI->connect('DBI:CSV:f_dir=t/tmp','testuser','testpw',{ PrintError => 1 });
 
@@ -85,7 +92,7 @@ Log::Log4perl::init(\$config);
 my $logger = Log::Log4perl->get_logger("groceries.beer");
 
 #$logger->fatal('fatal message',1234,'foo','bar');
-$logger->fatal('fatal message',1234,'foo'); #leave off the last one
+$logger->fatal('fatal message',1234,'foo', 'bar');
 $logger->warn('warning message',3456,'foo','bar');
 $logger->debug('debug message',99,'foo','bar');
 
@@ -99,7 +106,7 @@ is($row->[3], '1234');
 is($row->[4], 'groceries.beer');
 is($row->[5], 'main');
 is($row->[6], 'foo');
-is($row->[7], undef);
+is($row->[7], 'bar');
 
 $row = $sth->fetchrow_arrayref;
 is($row->[0], 'WARN');
