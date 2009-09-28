@@ -159,6 +159,11 @@ sub file_close {
 ##################################################
     my($self) = @_;
 
+    if(defined $self->{fh}) {
+        close $self->{fh} or
+            die "Can't close $self->{filename} ($!)";
+    }
+
     undef $self->{fh};
 }
 

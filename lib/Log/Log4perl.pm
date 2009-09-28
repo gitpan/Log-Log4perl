@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.24';
+our $VERSION = '1.25';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -175,6 +175,11 @@ sub import {
     if(exists $tags{':nowarn'}) {
         $Log::Log4perl::Logger::NON_INIT_WARNED = 1;
         delete $tags{':nowarn'};
+    }
+
+    if(exists $tags{':nostrict'}) {
+        $Log::Log4perl::Logger::NO_STRICT = 1;
+        delete $tags{':nostrict'};
     }
 
     if(exists $tags{':resurrect'}) {
@@ -393,15 +398,17 @@ sub add_appender { # Add an appender to the system, but don't assign
 }
 
 ##################################################
+# Return number of appenders changed
 sub appender_thresholds_adjust {  # Readjust appender thresholds
 ##################################################
         # If someone calls L4p-> and not L4p::
     shift if $_[0] eq __PACKAGE__;
     my($delta, $appenders) = @_;
+	my $retval = 0;
 
     if($delta == 0) {
           # Nothing to do, no delta given.
-        return 1;
+        return;
     }
 
     if(defined $appenders) {
@@ -431,8 +438,9 @@ sub appender_thresholds_adjust {  # Readjust appender thresholds
                              $old_thres, -$delta);
         }
 
-        $app->threshold($new_thres);
+        ++$retval if ($app->threshold($new_thres) == $new_thres);
     }
+	return $retval;
 }
 
 ##################################################
@@ -2528,6 +2536,30 @@ also a special tag for Log4perl that suppresses the second message:
 This causes logdie() and logcroak() to call exit() instead of die(). To
 modify the script exit code in these occasions, set the variable
 C<$Log::Log4perl::LOGEXIT_CODE> to the desired value, the default is 1.
+
+=item Redefine values without causing errors
+
+Log4perl's configuration file parser has a few basic safety mechanisms to 
+make sure configurations are more or less sane. 
+
+One of these safety measures is catching redefined values. For example, if
+you first write
+
+    log4perl.category = WARN, Logfile
+
+and then a couple of lines later
+
+    log4perl.category = TRACE, Logfile
+
+then you might have unintentionally overwritten the first value and Log4perl
+will die on this with an error (suspicious configurations always throw an
+error). Now, there's a chance that this is intentional, for example when
+you're lumping together several configuration files and actually I<want>
+the first value to overwrite the second. In this case use
+
+    use Log::Log4perl qw(:nostrict);
+
+to put Log4perl in a more permissive mode.
 
 =back
 
