@@ -82,6 +82,10 @@ sub new {
         $self->add_layout_cspec($f, $options->{cspec}{$f}{value});
     }
 
+    # non-portable line breaks
+    $layout_string =~ s/\\n/\n/g;
+    $layout_string =~ s/\\r/\r/g;
+
     $self->define($layout_string);
 
     return $self;
@@ -718,10 +722,12 @@ This will add a single newline to every message, regardless if it
 complies with the Log4perl newline guidelines or not (thanks to 
 Tim Bunce for this idea).
 
-=head1 SEE ALSO
+=head1 COPYRIGHT AND LICENSE
 
-=head1 AUTHOR
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
-Mike Schilli, E<lt>m@perlmeister.comE<gt>
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
 =cut

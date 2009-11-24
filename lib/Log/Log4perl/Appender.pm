@@ -432,7 +432,7 @@ Log::Log4perl level of the event
 
 Since the C<Log::Dispatch::File> appender truncates log files by default,
 and most of the time this is I<not> what you want, we've instructed 
-C<Log::Log4perl> to change this behaviour by slipping it the 
+C<Log::Log4perl> to change this behavior by slipping it the 
 C<mode =E<gt> append> parameter behind the scenes. So, effectively
 with C<Log::Log4perl> 0.23, a configuration like
 
@@ -474,14 +474,14 @@ three arguments passed to the logger and put them in three separate
 rows into the DB.
 
 The  C<warp_message> appender option is used to specify the desired 
-behaviour.
+behavior.
 If no setting for the appender property
 
     # *** Not defined ***
     # log4perl.appender.SomeApp.warp_message
 
 is defined in the Log4perl configuration file, the
-appender referenced by C<SomeApp> will fall back to the standard behaviour
+appender referenced by C<SomeApp> will fall back to the standard behavior
 and join all message chunks together, separating them by
 C<$Log::Log4perl::JOIN_MSG_ARRAY_CHAR>.
 
@@ -639,8 +639,12 @@ perform these steps. Here's the lineup:
 
 Log::Dispatch
 
-=head1 AUTHOR
+=head1 COPYRIGHT AND LICENSE
 
-Mike Schilli, E<lt>log4perl@perlmeister.comE<gt>
+Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+and Kevin Goess E<lt>cpan@goess.orgE<gt>.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself. 
 
 =cut
