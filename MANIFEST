@@ -72,7 +72,6 @@ LICENSE
 Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP
-META.yml
 README
 t/001Level.t
 t/002Logger.t
@@ -135,7 +134,8 @@ t/055AppDestroy.t
 t/056SyncApp2.t
 t/057MsgChomp.t
 t/058Warnings.t
-t/059Prototyped.t
+t/059Wrapper.t
+t/060Initialized.t
 t/compare.pl
 t/deeper1.expected
 t/deeper6.expected
@@ -143,3 +143,4 @@ t/deeper7.expected
 t/testdisp.pl
 xml/log4j-1.2.dtd
 xml/log4perl.dtd
+META.yml                                 Module meta-data (added by MakeMaker)

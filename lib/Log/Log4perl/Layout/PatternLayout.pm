@@ -306,6 +306,8 @@ sub curly_action {
             splice @parts, 0, @parts - $curlies;
         }
         $data = File::Spec->catfile(@parts);
+    } elsif($ops eq "p") {
+        $data = substr $data, 0, $curlies;
     }
 
     return $data;
@@ -471,7 +473,7 @@ replaced by the logging engine when it's time to log the message:
     %m{chomp} The message to be logged, stripped off a trailing newline
     %M Method or function where the logging request was issued
     %n Newline (OS-independent)
-    %p Priority of the logging event
+    %p Priority of the logging event (%p{1} shows the first letter)
     %P pid of the current process
     %r Number of milliseconds elapsed from program start to logging 
        event
@@ -607,7 +609,7 @@ If you're an API kind of person, there's also this call:
     Log::Log4perl::Layout::PatternLayout::
                     add_global_cspec('Z', sub {'zzzzzzzz'}); #snooze?
 
-When the log messages is being put together, your anonymous sub 
+When the log message is being put together, your anonymous sub 
 will be called with these arguments:
 
     ($layout, $message, $category, $priority, $caller_level);
@@ -619,12 +621,11 @@ will be called with these arguments:
     caller_level: how many levels back up the call stack you have 
         to go to find the caller
 
-There are currently some issues around providing API access to an 
-appender-specific cspec, but let us know if this is something you want.
-
 Please note that the subroutines you're defining in this way are going
 to be run in the C<main> namespace, so be sure to fully qualify functions
-and variables if they're located in different packages.
+and variables if they're located in different packages. I<Also make sure
+these subroutines aren't using Log4perl, otherwise Log4perl will enter 
+an infinite recursion.>
 
 With Log4perl 1.20 and better, cspecs can be written with parameters in
 curly braces. Writing something like
