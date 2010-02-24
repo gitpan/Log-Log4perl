@@ -407,8 +407,8 @@ sub generate_watch_code {
 
                # Bump up the caller level by three, since
                # we've artifically introduced additional levels.
-               local($Log::Log4perl::caller_depth);
-               $Log::Log4perl::caller_depth += 3;
+               local $Log::Log4perl::caller_depth =
+                     $Log::Log4perl::caller_depth += 3;
 
                # Get a new logger for the same category (the old
                # logger might be obsolete because of the re-init)
@@ -776,8 +776,11 @@ sub create_log_level_methods {
   # -erik
 
   *{__PACKAGE__ . "::$lclevel"} = sub {
-        print "$lclevel: ($_[0]->{category}/$_[0]->{level}) [@_]\n" 
-            if _INTERNAL_DEBUG;
+        if(_INTERNAL_DEBUG) {
+            my $level_disp = (defined $_[0]->{level} ? $_[0]->{level} 
+                                                     : "[undef]");
+            print "$lclevel: ($_[0]->{category}/$level_disp) [@_]\n";
+        }
         init_warn() unless $INITIALIZED or $NON_INIT_WARNED;
         $_[0]->{$level}->(@_, $level) if defined $_[0]->{$level};
      };
