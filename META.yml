@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Log-Log4perl
-version:            1.28
+version:            1.29
 abstract:           Log4j implementation for Perl
 author:
     - Mike Schilli <m@perlmeister.com>

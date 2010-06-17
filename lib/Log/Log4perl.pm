@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.28';
+our $VERSION = '1.29';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -187,7 +187,7 @@ sub import {
     if(exists $tags{':resurrect'}) {
         my $FILTER_MODULE = "Filter::Util::Call";
         if(! Log::Log4perl::Util::module_available($FILTER_MODULE)) {
-            die "$FILTER_MODULE required with :unhide" .
+            die "$FILTER_MODULE required with :resurrect" .
                 "(install from CPAN)";
         }
         eval "require $FILTER_MODULE" or die "Cannot pull in $FILTER_MODULE";
@@ -2492,8 +2492,21 @@ want
 
 because the C<func> function called your logging function.
 
-But don't dispair, there's a solution: Just increase the value
-of C<$Log::Log4perl::caller_depth> (defaults to 0) by one for every
+But don't dispair, there's a solution: Just register your wrapper
+package with Log4perl beforehand. If Log4perl then finds that it's being 
+called from a registered wrapper, it will automatically step up to the
+next call frame.
+
+    Log::Log4perl->wrapper_register(__PACKAGE__);
+
+    sub mylog {
+        my($message) = @_;
+
+        DEBUG $message;
+    }
+
+Alternatively, you can increase the value of the global variable
+C<$Log::Log4perl::caller_depth> (defaults to 0) by one for every
 wrapper that's in between your application and C<Log::Log4perl>,
 then C<Log::Log4perl> will compensate for the difference:
 
@@ -2691,7 +2704,7 @@ for details.
 
 Log::Log4perl is still being actively developed. We will
 always make sure the test suite (approx. 500 cases) will pass, but there 
-might still be bugs. please check http://log4perl.sourceforge.net
+might still be bugs. please check http://github.com/mschilli/log4perl
 for the latest release. The api has reached a mature state, we will 
 not change it unless for a good reason.
 

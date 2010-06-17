@@ -2,6 +2,23 @@
  Revision history for Log::Log4perl
 ##################################################
 
+1.29 (2010/06/16)
+   *    (ms) Added documentation on how to use Log4perl's :easy macros
+             with Catalyst in Log::Log4perl::Catalyst.
+   *    (ms) wrapper_register() now deals with caller_depth automatically.
+             Backwards compatibility with old wrapper classes using 
+             caller_depth directly is provided. Documentation has been 
+             updated.
+   *    (ms) Felix Antonius Wilhelm Ostmann reported Resurrector.pm 
+             crashes, fixed as suggested by setting the %INC value to 
+             the module path.
+   *    (ms) Another caller_depth fix in Log::Log4perl::Catalyst.
+   *    (ms) Fixed logdie() caller_depth bug reported by Rob Retter.
+   *    (ms) [RT 56145] Saving errstr in DBI appender to survive ping()
+   *    (ms) Added INTERNAL_DEBUG env variable to test suite triggering
+             all _INTERNAL_DEBUG statements to be printed for better
+             error diagnosis on misbehaving systems.
+
 1.28 (2010/02/24)
    *    (ms) Fixed caller stack with Buffer composite appender
    *    (ms) Fixed 'local caller_depth' error in various places. First

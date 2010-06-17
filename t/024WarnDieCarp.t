@@ -15,6 +15,13 @@
 #
 ######################################################################
 
+BEGIN { 
+    if($ENV{INTERNAL_DEBUG}) {
+        require Log::Log4perl::InternalDebug;
+        Log::Log4perl::InternalDebug->enable();
+    }
+}
+
 use warnings;
 use strict;
 
@@ -27,7 +34,7 @@ BEGIN {
     if ($] < 5.006) {
         plan skip_all => "Only with perl >= 5.006";
     } else {
-        plan tests => 62;
+        plan tests => 70;
     }
 }
 
@@ -301,3 +308,58 @@ my $foo = Foo1->new();
 eval { $foo->foo1() };
 
 like $@, qr/024WarnDieCarp.*Foo1::foo1.*eval/s, "Confess logs correct frame";
+
+######################################################################
+# logdie/warn caller level bug
+######################################################################
+Log::Log4perl->init(\<<'EOT');
+    log4perl.rootLogger=DEBUG, A1
+    log4perl.appender.A1=Log::Log4perl::Appender::TestBuffer
+    log4perl.appender.A1.layout=org.apache.log4j.PatternLayout
+    log4perl.appender.A1.layout.ConversionPattern=%F-%L: %m
+EOT
+
+$logger = get_logger("Twix::Bar");
+
+$logger->logwarn("warn!");
+like $warnstr, qr/024WarnDieCarp/, "logwarn() caller depth bug";
+unlike $warnstr, qr/Logger.pm/, "logwarn() caller depth bug";
+
+$Log::Log4perl::Logger::DIE_DEBUG = 1;
+$logger->logdie("die!");
+like $Log::Log4perl::Logger::DIE_DEBUG_BUFFER, qr/024WarnDieCarp/, 
+     "logdie() caller depth bug";
+unlike $Log::Log4perl::Logger::DIE_DEBUG_BUFFER, qr/Logger.pm/, 
+     "logdie() caller depth bug";
+
+my $app3 = Log::Log4perl::Appender::TestBuffer->by_name("A1");
+$app3->buffer("");
+
+my $line1 = __LINE__ + 1;
+subroutine();
+
+my $line2;
+sub subroutine {
+    $line2 = __LINE__ + 1;
+    $logger->logcluck("cluck!");
+}
+
+like $app3->buffer(), qr/-$line2: cluck!/, "logcluck()";
+like $app3->buffer(), qr/main::subroutine\(\) called .* line $line1/, 
+     "logcluck()";
+
+# Carp test
+
+$app3->buffer("");
+my $line3 = __LINE__ + 1;
+subroutine_carp();
+
+my $line4;
+sub subroutine_carp {
+    $line4 = __LINE__ + 1;
+    $logger->logcarp("carp!");
+}
+
+like $app3->buffer(), qr/-$line4: carp!/, "logcarp()";
+like $app3->buffer(), qr/main::subroutine_carp\(\) called .* line $line3/, 
+     "logcarp()";

@@ -24,9 +24,9 @@ sub init {
         *{$level} = sub {
             my ( $self, @message ) = @_;
 
-            local $Log::Log4perl::caller_depth;
-            $Log::Log4perl::caller_depth += 
-                $LOG_LEVEL_ADJUSTMENT;
+            local $Log::Log4perl::caller_depth =
+                  $Log::Log4perl::caller_depth +
+                     $LOG_LEVEL_ADJUSTMENT;
 
             my $logger = Log::Log4perl->get_logger();
             $logger->$level(@message);
@@ -36,9 +36,9 @@ sub init {
         *{"is_$level"} = sub {
             my ( $self, @message ) = @_;
 
-            local $Log::Log4perl::caller_depth;
-            $Log::Log4perl::caller_depth += 
-                $LOG_LEVEL_ADJUSTMENT;
+            local $Log::Log4perl::caller_depth =
+                  $Log::Log4perl::caller_depth +
+                     $LOG_LEVEL_ADJUSTMENT;
 
             my $logger = Log::Log4perl->get_logger();
             my $func   = "is_" . $level;
@@ -294,6 +294,40 @@ Flushes the cache.
 Clears the logging system's internal buffers without logging anything.
 
 =back
+
+=head2 Using :easy Macros with Catalyst
+
+If you're tired of typing
+
+    $c->log->debug("...");
+
+and would prefer to use Log4perl's convenient :easy mode macros like
+
+    DEBUG "...";
+
+then just pull those macros in via Log::Log4perl's :easy mode and start
+cranking:
+
+    use Log::Log4perl qw(:easy);
+
+      # ... use macros later on
+    sub base :Chained('/') :PathPart('apples') :CaptureArgs(0) {
+        my ( $self, $c ) = @_;
+
+        DEBUG "Handling apples";
+    }
+
+Note the difference between Log4perl's initialization in Catalyst, which
+uses the Catalyst-specific Log::Log4perl::Catalyst module (top of this
+page), and making use of Log4perl's loggers with the standard 
+Log::Log4perl loggers and macros. While initialization requires Log4perl
+to perform dark magic to conform to Catalyst's different logging strategy,
+obtaining Log4perl's logger objects or calling its macros are unchanged.
+
+Instead of using Catalyst's way of referencing the "context" object $c to 
+obtain logger references via its log() method, you can just as well use 
+Log4perl's get_logger() or macros to access Log4perl's logger singletons. 
+The result is the same.
 
 =head1 COPYRIGHT AND LICENSE
 
