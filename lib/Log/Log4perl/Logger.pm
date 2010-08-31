@@ -409,7 +409,7 @@ sub generate_watch_code {
                # Bump up the caller level by three, since
                # we've artifically introduced additional levels.
                local $Log::Log4perl::caller_depth =
-                     $Log::Log4perl::caller_depth += 3;
+                     $Log::Log4perl::caller_depth + 3;
 
                # Get a new logger for the same category (the old
                # logger might be obsolete because of the re-init)
@@ -700,6 +700,7 @@ sub create_custom_level {
                            "forgot to pass in a level after which to " .
                            "place the new level!");
   my $syslog_equiv = shift; # can be undef
+  my $log_dispatch_level = shift; # optional
 
   ## only let users create custom levels before initialization
 
@@ -733,7 +734,8 @@ sub create_custom_level {
       create_custom_level("cust1", cust2);
    }) if (${Log::Log4perl::Level::LEVELS{$cust_prio}});
 
-  Log::Log4perl::Level::add_priority($level, $cust_prio, $syslog_equiv);
+  Log::Log4perl::Level::add_priority($level, $cust_prio, $syslog_equiv,
+                                     $log_dispatch_level);
 
   print("Adding prio $level at $cust_prio\n") if _INTERNAL_DEBUG;
 

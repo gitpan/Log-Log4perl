@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.29';
+our $VERSION = '1.30';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -1927,6 +1927,17 @@ These levels can also be used in your
 config file, but note that your config file probably won't be
 portable to another log4perl or log4j environment unless you've
 made the appropriate mods there too.
+
+Since Log4perl translates log levels to syslog and Log::Dispatch if 
+their appenders are used, you may add mappings for custom levels as well:
+
+  Log::Log4perl::Level::add_priority("NOTIFY", "WARN",
+                                     $syslog_equiv, $log_dispatch_level);
+
+For example, if your new custom "NOTIFY" level is supposed to map 
+to syslog level 2 ("LOG_NOTICE") and Log::Dispatch level 2 ("notice"), use:
+
+  Log::Log4perl::Logger::create_custom_level("NOTIFY", "WARN", 2, 2);
 
 =head2 System-wide log levels
 
