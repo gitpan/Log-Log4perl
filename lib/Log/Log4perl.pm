@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.31';
+our $VERSION = '1.32';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -168,9 +168,8 @@ sub import {
                     $Log::Log4perl::Logger::INITIALIZED or
                     $Log::Log4perl::Logger::NON_INIT_WARNED;
             $logger->{WARN}->($logger, @_, "WARN");
-            $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR ?
-            CORE::warn(Log::Log4perl::Logger::callerline(join '', @_)) :
-            exit $Log::Log4perl::LOGEXIT_CODE;
+            CORE::warn(Log::Log4perl::Logger::callerline(join '', @_))
+                if $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR;
         };
     }
 

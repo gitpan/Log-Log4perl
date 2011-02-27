@@ -1,6 +1,19 @@
 ##################################################
  Revision history for Log::Log4perl
 ##################################################
+1.32 (2011/02/26)
+   *    (ms) Fixed %T caller_depth with wrapper_register(), reported
+             by David Christensen.
+   *    (ms) [RT 63053] Fixed for qw() {} deprecated (Todd Rinaldo)
+   *    (ms) [RT 62674] Fixed call to deprecated form of UNIVERSAL::can (Karen
+             Etheridge).
+   *    (ms) [RT 62896] Log::Log4perl::Appender::ScreenColoredLevels now 
+             inherits from Log::Log4perl::Appender::Screen and therefore
+             supports the utf8 flag.
+   *    (ms) [RT 64318] Andrew Sayers provided a better error message for
+             "threshold needs to be uppercase".
+   *    (ms) CharleyDixon fixed LOGWARN when :no_extra_logdie_message is 
+             in use to no longer exit().
 
 1.31 (2010/10/27)
   *     (ms) Fixed the number of skipped tests for Windows for previous fix
