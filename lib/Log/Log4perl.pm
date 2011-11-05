@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.33';
+our $VERSION = '1.34';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -1118,7 +1118,7 @@ category, using the format defined for it.
 
 Third example:
 
-    log4j.rootLogger=debug, stdout, R
+    log4j.rootLogger=DEBUG, stdout, R
     log4j.appender.stdout=org.apache.log4j.ConsoleAppender
     log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
     log4j.appender.stdout.layout.ConversionPattern=%5p (%F:%L) - %m%n
@@ -1490,14 +1490,34 @@ to obtain a logger of the category matching the
 I<actual> class of the object, like in
 
         # ... in Bar::new() ...
-    my $logger = Log::Log4perl::get_logger($class);
+    my $logger = Log::Log4perl::get_logger( $class );
 
-This way, you'll make sure the logger logs appropriately, 
-no matter if the method is inherited or called directly.
-C<new()> always gets the
-real class name as an argument and all other methods can determine it 
-via C<ref($self)>), so it shouldn't be a problem to get the right class
-every time.
+In a method other than the constructor, the class name of the actual
+object can be obtained by calling C<ref()> on the object reference, so
+
+    package BaseClass;
+    use Log::Log4perl qw( get_logger );
+
+    sub new { 
+        bless {}, shift; 
+    }
+
+    sub method {
+        my( $self ) = @_;
+
+        get_logger( ref $self )->debug( "message" );
+    }
+
+    package SubClass;
+    our @ISA = qw(BaseClass);
+
+is the recommended pattern to make sure that 
+
+    my $sub = SubClass->new();
+    $sub->meth();
+
+starts logging if the C<"SubClass"> category 
+(and not the C<"BaseClass"> category has logging enabled at the DEBUG level.
 
 =head2 Initialize once and only once
 
