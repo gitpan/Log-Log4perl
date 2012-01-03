@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.34';
+our $VERSION = '1.35';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -898,11 +898,19 @@ Rather than doing the following:
 
 you can use the following:
 
-    $logger->logwarn();
     $logger->logdie();
 
-These print out log messages in the WARN and FATAL level, respectively,
-and then call the built-in warn() and die() functions. Since there is
+And if instead of using
+
+    warn($message);
+    $logger->warn($message);
+
+to both issue a warning via Perl's warn() mechanism and make sure you have
+the same message in the log file as well, use:
+
+    $logger->logwarn();
+
+Since there is
 an ERROR level between WARN and FATAL, there are two additional helper
 functions in case you'd like to use ERROR for either warn() or die():
 
