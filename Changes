@@ -2,7 +2,13 @@
  Revision history for Log::Log4perl
 ##################################################
 
-1.35 (not yet released)
+1.36 (2012/02/11)
+   *    (ms) [rt.cpan.org #74833] Reini Urban fixed "defined @array" for
+             perl 5.16
+   *    (ms) [rt.cpan.org #74836] Cope with Carp's questionable decision to
+             add a trailing dot to its messages.
+
+1.35 (2012/01/03)
    *    (ms) [rt.cpan.org #73462] Changed logwarn/logcluck/logcarp/error_warn 
              to warn() unconditionally and send the message to log4perl which
              will log it only if the log level conditions are met.

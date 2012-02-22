@@ -150,4 +150,5 @@ t/lib/Log4perlInternalTest.pm
 t/testdisp.pl
 xml/log4j-1.2.dtd
 xml/log4perl.dtd
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)
