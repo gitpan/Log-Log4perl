@@ -24,6 +24,7 @@ our $DEFAULT_WATCH_DELAY = 60; # seconds
 our $OPTS = {};
 our $OLD_CONFIG;
 our $LOGGERS_DEFINED;
+our $UTF8 = 0;
 
 ###########################################
 sub init {
@@ -33,6 +34,16 @@ sub init {
     undef $WATCHER; # just in case there's a one left over (e.g. test cases)
 
     return _init(@_);
+}
+
+###########################################
+sub utf8 {
+###########################################
+    my( $class, $flag ) = @_;
+
+    $UTF8 = $flag if defined $flag;
+
+    return $UTF8;
 }
 
 ###########################################
@@ -564,6 +575,10 @@ sub config_read {
 
     $CONFIG_FILE_READS++;  # Count for statistical purposes
 
+    my $base_configurator = Log::Log4perl::Config::BaseConfigurator->new(
+        utf8 => $UTF8,
+    );
+
     my $data = {};
 
     if (ref($config) eq 'HASH') {   # convert the hashref into a list 
@@ -584,7 +599,7 @@ sub config_read {
              ref $config eq 'IO::File') {
             # If we have a file handle, just call the reader
         print "Reading config from file handle\n" if _INTERNAL_DEBUG;
-        config_file_read($config, \@text);
+        @text = @{ $base_configurator->file_h_read( $config ) };
 
     } elsif (ref $config) {
             # Caller provided a config parser object, which already
@@ -593,8 +608,7 @@ sub config_read {
         $data = $config->parse();
         return $data;
 
-    #TBD
-    }elsif ($config =~ m|^ldap://|){
+    } elsif ($config =~ m|^ldap://|){
        if(! Log::Log4perl::Util::module_available("Net::LDAP")) {
            die "Log4perl: missing Net::LDAP needed to parse LDAP urls\n$@\n";
        }
@@ -604,7 +618,7 @@ sub config_read {
 
        return Log::Log4perl::Config::LDAPConfigurator->new->parse($config);
 
-    }else{
+    } else {
 
         if ($config =~ /^(https?|ftp|wais|gopher|file):/){
             my ($result, $ua);
@@ -632,12 +646,13 @@ sub config_read {
                 die "Log4perl couln't get $config, ".
                      $res->message." ";
             }
-        }else{
+        } else {
             print "Reading config from file '$config'\n" if _INTERNAL_DEBUG;
-            open FILE, "<$config" or die "Cannot open config file '$config' - $!";
             print "Reading ", -s $config, " bytes.\n" if _INTERNAL_DEBUG;
-            config_file_read(\*FILE, \@text);
-            close FILE;
+              # Use the BaseConfigurator's file reader to avoid duplicating
+              # utf8 handling here.
+            $base_configurator->file( $config );
+            @text = @{ $base_configurator->text() };
         }
     }
     
@@ -666,19 +681,6 @@ sub config_read {
     $data = $parser->parse_post_process( $data, leaf_paths($data) );
 
     return $data;
-}
-
-
-###########################################
-sub config_file_read {
-###########################################
-    my($handle, $linesref) = @_;
-
-        # Dennis Gregorovic <dgregor@redhat.com> added this
-        # to protect apps which are tinkering with $/ globally.
-    local $/ = "\n";
-
-    @$linesref = <$handle>;
 }
 
 ###########################################
@@ -1130,6 +1132,20 @@ certainly override it:
 
 C<write> is the C<mode> that has C<Log::Log4perl::Appender::File>
 explicitely clobber the log file if it exists.
+
+=head2 Configuration files encoded in utf-8
+
+If your configuration file is encoded in utf-8 (which matters if you 
+e.g. specify utf8-encoded appender filenames in it), then you need to 
+tell Log4perl before running init():
+
+    use Log::Log4perl::Config;
+    Log::Log4perl::Config->utf( 1 );
+
+    Log::Log4perl->init( ... );
+
+This makes sure Log4perl interprets utf8-encoded config files correctly.
+This setting might become the default at some point.
 
 =head1 SEE ALSO
 

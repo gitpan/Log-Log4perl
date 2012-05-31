@@ -14,13 +14,16 @@ sub new {
     my($class, %options) = @_;
 
     my $self = { 
+        utf8 => 0,
         %options,
-               };
+    };
+
+    bless $self, $class;
 
     $self->file($self->{file}) if exists $self->{file};
     $self->text($self->{text}) if exists $self->{text};
 
-    bless $self, $class;
+    return $self;
 }
 
 ################################################
@@ -45,9 +48,26 @@ sub file {
 ################################################
     my($self, $filename) = @_;
 
-    open FILE, "<$filename" or die "Cannot open $filename ($!)";
-    $self->{text} = [<FILE>];
-    close FILE;
+    open my $fh, "$filename" or die "Cannot open $filename ($!)";
+
+    if( $self->{ utf8 } ) {
+        binmode $fh, ":utf8";
+    }
+
+    $self->file_h_read( $fh );
+    close $fh;
+}
+
+################################################
+sub file_h_read {
+################################################
+    my($self, $fh) = @_;
+
+        # Dennis Gregorovic <dgregor@redhat.com> added this
+        # to protect apps which are tinkering with $/ globally.
+    local $/ = "\n";
+
+    $self->{text} = [<$fh>];
 }
 
 ################################################
