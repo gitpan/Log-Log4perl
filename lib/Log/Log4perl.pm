@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.37';
+our $VERSION = '1.38';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -388,6 +388,26 @@ sub get_logger {  # Get an instance (shortcut)
 
     # Delegate this to the logger module
     return Log::Log4perl::Logger->get_logger($category);
+}
+
+###########################################
+sub caller_depth_offset {
+###########################################
+    my( $level ) = @_;
+
+    my $category;
+
+    { 
+        my $category = scalar caller($level + 1);
+
+        if(defined $category and
+           exists $WRAPPERS_REGISTERED{ $category }) {
+            $level++;
+            redo;
+        }
+    }
+
+    return $level;
 }
 
 ##################################################
@@ -823,10 +843,14 @@ using the constants defined in C<Log::Log4perl::Level>:
     $logger->log($ERROR, "...");
     $logger->log($FATAL, "...");
 
-But nobody does that, really. Neither does anyone need more logging
-levels than these predefined ones. If you think you do, I would
-suggest you look into steering your logging behaviour via
-the category mechanism.
+This form is rarely used, but it comes in handy if you want to log 
+at different levels depending on an exit code of a function:
+
+    $logger->log( $exit_level{ $rc }, "...");
+
+As for needing more logging levels than these predefined ones: It's
+usually best to steer your logging behaviour via the category 
+mechanism instead.
 
 If you need to find out if the currently configured logging
 level would allow a logger's logging statement to go through, use the
