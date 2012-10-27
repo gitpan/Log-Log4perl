@@ -21,7 +21,6 @@ use File::Basename;
 
 our $TIME_HIRES_AVAILABLE_WARNED = 0;
 our $HOSTNAME;
-
 our %GLOBAL_USER_DEFINED_CSPECS = ();
 
 our $CSPECS = 'cCdFHIlLmMnpPrRtTxX%';
@@ -55,6 +54,10 @@ sub new {
         CSPECS                => $CSPECS,
         dontCollapseArrayRefs => $options->{dontCollapseArrayRefs}{value},
         last_time             => undef,
+        undef_column_value    => 
+            (exists $options->{ undef_column_value } 
+                ? $options->{ undef_column_value } 
+                : "[undef]"),
     };
 
     $self->{timer} = Log::Log4perl::Util::TimeTracker->new(
@@ -291,8 +294,14 @@ sub render {
             $result = "FORMAT-ERROR";
         }
 
-        $result = "[undef]" unless defined $result;
+        $result = $self->{undef_column_value} unless defined $result;
         push @results, $result;
+    }
+
+      # dbi appender needs that
+    if( scalar @results == 1 and
+        !defined $results[0] ) {
+        return undef;
     }
 
     return (sprintf $self->{printformat}, @results);
@@ -776,12 +785,34 @@ This will add a single newline to every message, regardless if it
 complies with the Log4perl newline guidelines or not (thanks to 
 Tim Bunce for this idea).
 
-=head1 COPYRIGHT AND LICENSE
+=head1 LICENSE
 
-Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+Copyright 2002-2012 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
 and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
 
-=cut
+=head1 AUTHOR
+
+Please contribute patches to the project on Github:
+
+    http://github.com/mschilli/log4perl
+
+Send bug reports or requests for enhancements to the authors via our
+
+MAILING LIST (questions, bug reports, suggestions/patches): 
+log4perl-devel@lists.sourceforge.net
+
+Authors (please contact them via the list above, not directly):
+Mike Schilli <m@perlmeister.com>,
+Kevin Goess <cpan@goess.org>
+
+Contributors (in alphabetical order):
+Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
+Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
+Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
+Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
+Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
+Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
+

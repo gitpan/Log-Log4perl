@@ -843,13 +843,17 @@ sub and_warn {
 sub and_die {
 #######################################################
   my $self = shift;
+  my $arg  = $_[0];
 
   my($msg) = callerline($self->warning_render(@_));
 
   if($DIE_DEBUG) {
       $DIE_DEBUG_BUFFER = "DIE_DEBUG: $msg";
   } else {
-      die("$msg\n");
+      if( $Log::Log4perl::STRINGIFY_DIE_MESSAGE ) {
+          die("$msg\n");
+      }
+      die $arg;
   }
 }
 
@@ -961,6 +965,7 @@ sub logcarp {
 sub logcroak {
 ##################################################
   my $self = shift;
+  my $arg  = $_[0];
 
   my $msg = $self->warning_render(@_);
 
@@ -977,8 +982,14 @@ sub logcroak {
     }
   }
 
+  my $croak_msg = $arg;
+
+  if( $Log::Log4perl::STRINGIFY_DIE_MESSAGE ) {
+      $croak_msg = $msg;
+  }
+
   $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR ? 
-      Carp::croak($msg) : 
+      Carp::croak($croak_msg) : 
         exit($Log::Log4perl::LOGEXIT_CODE);
 }
 
@@ -986,6 +997,7 @@ sub logcroak {
 sub logconfess {
 ##################################################
   my $self = shift;
+  my $arg  = $_[0];
 
   local $Carp::CarpLevel = 
         $Carp::CarpLevel + 1;
@@ -1002,8 +1014,14 @@ sub logconfess {
     }
   }
 
+  my $confess_msg = $arg;
+
+  if( $Log::Log4perl::STRINGIFY_DIE_MESSAGE ) {
+      $confess_msg = $msg;
+  }
+
   $Log::Log4perl::LOGDIE_MESSAGE_ON_STDERR ? 
-      confess($msg) :
+      confess($confess_msg) :
         exit($Log::Log4perl::LOGEXIT_CODE);
 }
 
@@ -1099,12 +1117,34 @@ Log::Log4perl::Logger - Main Logger Class
 While everything that makes Log4perl tick is implemented here,
 please refer to L<Log::Log4perl> for documentation.
 
-=head1 COPYRIGHT AND LICENSE
+=head1 LICENSE
 
-Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+Copyright 2002-2012 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
 and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
 
-=cut
+=head1 AUTHOR
+
+Please contribute patches to the project on Github:
+
+    http://github.com/mschilli/log4perl
+
+Send bug reports or requests for enhancements to the authors via our
+
+MAILING LIST (questions, bug reports, suggestions/patches): 
+log4perl-devel@lists.sourceforge.net
+
+Authors (please contact them via the list above, not directly):
+Mike Schilli <m@perlmeister.com>,
+Kevin Goess <cpan@goess.org>
+
+Contributors (in alphabetical order):
+Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
+Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
+Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
+Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
+Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
+Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
+

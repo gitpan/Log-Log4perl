@@ -33,8 +33,10 @@ sub new {
     #log4j.appender.DBAppndr.params.2 = %5.5m
     foreach my $pnum (keys %{$p{params}}){
         $self->{bind_value_layouts}{$pnum} = 
-                Log::Log4perl::Layout::PatternLayout->new(
-                    {ConversionPattern => {value  => $p{params}->{$pnum}}});
+                Log::Log4perl::Layout::PatternLayout->new({
+                   ConversionPattern  => {value  => $p{params}->{$pnum}},
+                   undef_column_value => undef,
+                });
     }
     #'bind_value_layouts' now contains a PatternLayout
     #for each parameter heading for the Sql engine
@@ -49,8 +51,10 @@ sub new {
         $self->{sth} = $self->create_statement($p{sql});
         $self->{usePreparedStmt} = 1;
     }else{
-        $self->{layout} = Log::Log4perl::Layout::PatternLayout->new(
-                    {ConversionPattern => {value  => $p{sql}}});
+        $self->{layout} = Log::Log4perl::Layout::PatternLayout->new({
+            ConversionPattern  => {value  => $p{sql}},
+            undef_column_value => undef,
+        });
     }
 
     if ($self->{usePreparedStmt} &&  $self->{bufferSize}){
@@ -601,12 +605,34 @@ L<Log::Dispatch::DBI>
 
 L<Log::Log4perl::JavaMap::JDBCAppender>
 
-=head1 COPYRIGHT AND LICENSE
+=head1 LICENSE
 
-Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+Copyright 2002-2012 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
 and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
 
-=cut
+=head1 AUTHOR
+
+Please contribute patches to the project on Github:
+
+    http://github.com/mschilli/log4perl
+
+Send bug reports or requests for enhancements to the authors via our
+
+MAILING LIST (questions, bug reports, suggestions/patches): 
+log4perl-devel@lists.sourceforge.net
+
+Authors (please contact them via the list above, not directly):
+Mike Schilli <m@perlmeister.com>,
+Kevin Goess <cpan@goess.org>
+
+Contributors (in alphabetical order):
+Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
+Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
+Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
+Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
+Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
+Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
+

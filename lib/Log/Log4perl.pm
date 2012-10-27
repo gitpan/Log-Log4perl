@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.38';
+our $VERSION = '1.39';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -66,6 +66,10 @@ our $LOGEXIT_CODE             = 1;
 our %IMPORT_CALLED;
 
 our $EASY_CLOSURES = {};
+
+  # to throw refs as exceptions via logcarp/confess, turn this off
+our $STRINGIFY_DIE_MESSAGE = 1;
+
 use constant _INTERNAL_DEBUG => 0;
 
 ##################################################
@@ -941,8 +945,8 @@ functions in case you'd like to use ERROR for either warn() or die():
     $logger->error_warn();
     $logger->error_die();
 
-Finally, there's the Carp functions that do just what the Carp functions
-do, but with logging:
+Finally, there's the Carp functions that, in addition to logging,
+also pass the stringified message to their companions in the Carp package:
 
     $logger->logcarp();        # warn w/ 1-level stack trace
     $logger->logcluck();       # warn w/ full stack trace
@@ -1941,7 +1945,7 @@ name is defined in the map.
 Adds the given name/mask pair to the convenience name map.  If the name
 already exists in the map, it's value is replaced with the new mask.
 
-=back 
+=back
 
 as can vars_shared_with_safe_compartment():
 
@@ -2790,6 +2794,21 @@ the first value to overwrite the second. In this case use
 
 to put Log4perl in a more permissive mode.
 
+=item Prevent croak/confess from stringifying
+
+The logcroak/logconfess functions stringify their arguments before
+they pass them to Carp's croak/confess functions. This can get in the
+way if you want to throw an object or a hashref as an exception, in
+this case use:
+
+    $Log::Log4perl::STRINGIFY_DIE_MESSAGE = 0;
+
+    eval {
+          # throws { foo => "bar" }
+          # without stringification
+        $logger->logcroak( { foo => "bar" } );
+    };
+
 =back
 
 =head1 EXAMPLE
@@ -2902,34 +2921,32 @@ L<Log::Log4perl::NDC|Log::Log4perl::NDC>,
 
 =head1 AUTHORS
 
-Please contribute patches to the project page on Github:
+Please contribute patches to the project on Github:
 
     http://github.com/mschilli/log4perl
 
-Bug reports or requests for enhancements to the authors via 
-our
+Send bug reports or requests for enhancements to the authors via our
 
-    MAILING LIST (questions, bug reports, suggestions/patches): 
-    log4perl-devel@lists.sourceforge.net
+MAILING LIST (questions, bug reports, suggestions/patches): 
+log4perl-devel@lists.sourceforge.net
 
-    Authors (please contact them via the list above, not directly)
-    Mike Schilli <m@perlmeister.com>
-    Kevin Goess <cpan@goess.org>
+Authors (please contact them via the list above, not directly):
+Mike Schilli <m@perlmeister.com>,
+Kevin Goess <cpan@goess.org>
 
-    Contributors (in alphabetical order):
-    Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
-    Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
-    Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
-    Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
-    Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
-    Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
+Contributors (in alphabetical order):
+Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
+Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
+Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
+Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
+Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
+Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
 
-=head1 COPYRIGHT AND LICENSE
+=head1 LICENSE
 
-Copyright 2002-2009 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+Copyright 2002-2012 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
 and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 
 
-=cut

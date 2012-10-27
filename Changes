@@ -2,6 +2,23 @@
  Revision history for Log::Log4perl
 ##################################################
 
+1.39 (2012/10/27)
+   *    (ms) Markus Benning reported that logcroak/confess/die stringify
+             their arguments, which gets in the way when throwing data
+             structures as exceptions. Added flag $STRINGIFY_DIE_MESSAGE.
+   *    (ms) [rt.cpan.org #80086] David Morel pointed out misleading 
+             documentation in the Limiter composite appender. Fixed docs
+             and added C<appender_method_on_flush> parameter to support
+             appender flush calls by the limiter.
+   *    (ms) [rt.cpan.org #79960] Fabrice Gabolde asked for %X{x} to be 
+             interpolated as NULL for the database appender if its value is 
+             undef. The DBI appender now inits PatternLayout with the 
+             undef_column_name parameter set to undef (defaults to "[undef]").
+   *    (ms) Updated license/copyright/author sections in all files using 
+             licensizer and .licensizer.yml.
+   *    (ms) Skipped log file recreation test on Win32 as it won't remove
+             busy files anyway.
+
 1.38 (2012/09/23)
    *    (ms) Bob Kleemann reported that logdie() in wrapper classes
              printed incorrect caller lines. Fixed by adding 
