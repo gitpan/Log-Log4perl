@@ -155,6 +155,14 @@ sub _new {
 }
 
 ##################################################
+sub category {
+##################################################
+   my ($self) = @_;
+
+   return $self->{ category };
+}
+
+##################################################
 sub reset_all_output_methods {
 ##################################################
     print "reset_all_output_methods: \n" if _INTERNAL_DEBUG;
@@ -555,7 +563,7 @@ sub get_logger {
     my($class, $category) = @_;
 
     unless(defined $ROOT_LOGGER) {
-        die "Internal error: Root Logger not initialized.";
+        Carp::confess "Internal error: Root Logger not initialized.";
     }
 
     return $ROOT_LOGGER if $category eq "";

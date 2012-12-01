@@ -2,6 +2,19 @@
  Revision history for Log::Log4perl
 ##################################################
 
+1.40 (2012/11/30)
+   *    (ms) Denis Ibaev added support for DBI appender attributes.
+   *    (ms) Chris Weyl put in a workaround for a DBD::CSV bug that
+             tripped our test suite.
+   *    (ms) Tim Bunce provided a patch using Carp::confess() instead of die()
+             on the "Root Logger not initialized" message which pops up
+             during global construction to make it easier to find the 
+             offending code.
+   *    (ms) Cygwin masks MSWin32-ishness by setting $^O to "cygwin" and not
+             to "Win32". Modified check to catch both.
+   *    (ms) Fixed unescaped brace in regex that perl 5.17.4 was complaining 
+             about.
+
 1.39 (2012/10/27)
    *    (ms) Markus Benning reported that logcroak/confess/die stringify
              their arguments, which gets in the way when throwing data

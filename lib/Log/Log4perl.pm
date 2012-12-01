@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.39';
+our $VERSION = '1.40';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -814,6 +814,8 @@ the log level is supposed to be C<ERROR> -- meaning that I<DEBUG>
 and I<INFO> messages are suppressed. Note that this 'inheritance' is
 unrelated to Perl's class inheritance, it is merely related to the
 logger namespace.
+By the way, if you're ever in doubt about what a logger's category is, 
+use C<$logger->category()> to retrieve it.
 
 =head2 Log Levels
 
@@ -1348,7 +1350,7 @@ are located in:
     package Candy::Twix;
 
     sub new { 
-        my $logger = Log::Log4perl->new("Candy::Twix");
+        my $logger = Log::Log4perl->get_logger("Candy::Twix");
         $logger->debug("Creating a new Twix bar");
         bless {}, shift;
     }
@@ -1358,7 +1360,7 @@ are located in:
     package Candy::Snickers;
 
     sub new { 
-        my $logger = Log::Log4perl->new("Candy.Snickers");
+        my $logger = Log::Log4perl->get_logger("Candy.Snickers");
         $logger->debug("Creating a new Snickers bar");
         bless {}, shift;
     }
@@ -1388,7 +1390,7 @@ procedural:
 
     sub print_portfolio {
 
-        my $log = Log::Log4perl->new("user.portfolio");
+        my $log = Log::Log4perl->get_logger("user.portfolio");
         $log->debug("Quotes requested: @_");
 
         for(@_) {
@@ -1398,7 +1400,7 @@ procedural:
 
     sub get_quote {
 
-        my $log = Log::Log4perl->new("internet.quotesystem");
+        my $log = Log::Log4perl->get_logger("internet.quotesystem");
         $log->debug("Fetching quote: $_[0]");
 
         return yahoo_quote($_[0]);
