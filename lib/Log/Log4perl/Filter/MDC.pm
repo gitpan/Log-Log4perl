@@ -1,41 +1,35 @@
-##################################################
-package Log::Log4perl::Layout::SimpleLayout;
-##################################################
-# as documented in
-# http://jakarta.apache.org/log4j/docs/api/org/apache/log4j/SimpleLayout.html
-##################################################
-
-use 5.006;
+package Log::Log4perl::Filter::MDC;
 use strict;
 use warnings;
-use Log::Log4perl::Level;
 
-no strict qw(refs);
-use base qw(Log::Log4perl::Layout);
+use Log::Log4perl::Util qw( params_check );
 
-##################################################
+use base "Log::Log4perl::Filter";
+
 sub new {
-##################################################
-    my $class = shift;
-    $class = ref ($class) || $class;
+    my ( $class, %options ) = @_;
 
-    my $self = {
-        format      => undef,
-        info_needed => {},
-        stack       => [],
-    };
+    my $self = {%options};
+
+    params_check( $self, [qw( KeyToMatch RegexToMatch )] );
+
+    $self->{RegexToMatch} = qr/$self->{RegexToMatch}/;
 
     bless $self, $class;
 
     return $self;
 }
 
-##################################################
-sub render {
-##################################################
-    my($self, $message, $category, $priority, $caller_level) = @_;
+sub ok {
+    my ( $self, %p ) = @_;
 
-    return "$priority - $message\n";
+    my $context = Log::Log4perl::MDC->get_context;
+
+    my $value = $context->{ $self->{KeyToMatch} };
+    return 1
+        if defined $value && $value =~ $self->{RegexToMatch};
+
+    return 0;
 }
 
 1;
@@ -44,22 +38,28 @@ __END__
 
 =head1 NAME
 
-Log::Log4perl::Layout::SimpleLayout - Simple Layout
+Log::Log4perl::Filter::MDC - Filter to match on values of a MDC key
 
 =head1 SYNOPSIS
 
-  use Log::Log4perl::Layout::SimpleLayout;
-  my $layout = Log::Log4perl::Layout::SimpleLayout->new();
+    log4perl.filter.Match1               = Log::Log4perl::Filter::MDC
+    log4perl.filter.Match1.KeyToMatch    = foo
+    log4perl.filter.Match1.RegexToMatch  = bar
 
 =head1 DESCRIPTION
 
-This class implements the C<log4j> simple layout format -- it basically 
-just prints the message priority and the message, that's all.
-Check 
-http://jakarta.apache.org/log4j/docs/api/org/apache/log4j/SimpleLayout.html
-for details.
+This Log4perl filter checks if a predefined MDC key, as set in C<KeyToMatch>,
+of the currently submitted message matches a predefined regex, as set in
+C<RegexToMatch>.
 
 =head1 SEE ALSO
+
+L<Log::Log4perl::Filter>,
+L<Log::Log4perl::Filter::Boolean>,
+L<Log::Log4perl::Filter::LevelMatch>,
+L<Log::Log4perl::Filter::LevelRange>,
+L<Log::Log4perl::Filter::MDC>,
+L<Log::Log4perl::Filter::StringMatch>
 
 =head1 LICENSE
 

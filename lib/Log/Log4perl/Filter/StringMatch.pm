@@ -65,7 +65,7 @@ __END__
 
 =head1 NAME
 
-Log::Log4perl::Filter::StringMatch - Filter to match the log level exactly
+Log::Log4perl::Filter::StringMatch - Filter on log message string
 
 =head1 SYNOPSIS
 
@@ -85,13 +85,14 @@ is supposed to pass or block the message on a match (C<true> or C<false>).
 =head1 SEE ALSO
 
 L<Log::Log4perl::Filter>,
+L<Log::Log4perl::Filter::Boolean>,
 L<Log::Log4perl::Filter::LevelMatch>,
 L<Log::Log4perl::Filter::LevelRange>,
-L<Log::Log4perl::Filter::Boolean>
+L<Log::Log4perl::Filter::MDC>
 
 =head1 LICENSE
 
-Copyright 2002-2012 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+Copyright 2002-2013 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
 and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
@@ -116,7 +117,8 @@ Contributors (in alphabetical order):
 Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
 Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
 Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
-Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
-Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
-Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
+Grundman, Paul Harrington, Alexander Hartmaier  David Hull, 
+Robert Jacobson, Jason Kohles, Jeff Macdonald, Markus Peter, 
+Brett Rann, Peter Rabbitson, Erik Selberg, Aaron Straup Cope, 
+Lars Thegler, David Viner, Mac Yang.
 

@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.40';
+our $VERSION = '1.41';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -620,7 +620,6 @@ __END__
 Log::Log4perl - Log4j implementation for Perl
 
 =head1 SYNOPSIS
- 
         # Easy mode if you like it simple ...
 
     use Log::Log4perl qw(:easy);
@@ -657,10 +656,10 @@ Log::Log4perl - Log4j implementation for Perl
     log4perl.appender.FileAppndr1.layout   = \
                             Log::Log4perl::Layout::SimpleLayout
     ######################################################
-       
+
 =head1 ABSTRACT
 
-    Log::Log4perl provides a powerful logging API for your application
+Log::Log4perl provides a powerful logging API for your application
 
 =head1 DESCRIPTION
 
@@ -815,7 +814,7 @@ and I<INFO> messages are suppressed. Note that this 'inheritance' is
 unrelated to Perl's class inheritance, it is merely related to the
 logger namespace.
 By the way, if you're ever in doubt about what a logger's category is, 
-use C<$logger->category()> to retrieve it.
+use C<$logger-E<gt>category()> to retrieve it.
 
 =head2 Log Levels
 
@@ -1255,7 +1254,7 @@ customized specifiers.
 Please note that the subroutines you're defining in this way are going
 to be run in the C<main> namespace, so be sure to fully qualify functions
 and variables if they're located in different packages.
-    
+
 SECURITY NOTE: this feature means arbitrary perl code can be embedded in the 
 config file.  In the rare case where the people who have access to your config 
 file are different from the people who write your code and shouldn't have 
@@ -1275,8 +1274,8 @@ tradition, C<%-20c> will reserve 20 chars for the category and left-justify it.
 For more details on logging and how to use the flexible and the simple
 format, check out the original C<log4j> website under
 
-    http://jakarta.apache.org/log4j/docs/api/org/apache/log4j/SimpleLayout.html
-    http://jakarta.apache.org/log4j/docs/api/org/apache/log4j/PatternLayout.html
+    http://logging.apache.org/log4j/1.2/apidocs/org/apache/log4j/SimpleLayout.html
+    http://logging.apache.org/log4j/1.2/apidocs/org/apache/log4j/PatternLayout.html
 
 =head2 Penalties
 
@@ -1873,7 +1872,7 @@ that are allowed to run in the compartment.  The opcode masks must be
 specified as described in L<Opcode>:
 
  Log::Log4perl::Config->allowed_code_ops(':subprocess');
- 
+
 This example would allow Perl operations like backticks, system, fork, and
 waitpid to be executed in the compartment.  Of course, you probably don't
 want to use this mask -- it would allow exactly what the Safe compartment is
@@ -1897,7 +1896,7 @@ following convenience names are defined:
 
  safe        = [ ':browse' ]
  restrictive = [ ':default' ]
- 
+
 For convenience, if Log::Log4perl::Config-E<gt>allow_code() is called with a
 value which is a key of the map previously defined with
 Log::Log4perl::Config-E<gt>allowed_code_ops_convenience_map(), then the
@@ -2165,7 +2164,7 @@ create a STDERR appender and a root logger as in
 or, as shown below (and in the example above) 
 with a reference to a hash, specifying values
 for C<level> (the logger's priority), C<file> (the appender's data sink),
-C<category> (the logger's category> and C<layout> for the appender's 
+C<category> (the logger's category and C<layout> for the appender's 
 pattern layout specification.
 All key-value pairs are optional, they 
 default to C<$DEBUG> for C<level>, C<STDERR> for C<file>,
@@ -2443,7 +2442,11 @@ which holds references to all appender wrapper objects.
 
 =head2 Modify appender thresholds
 
-To conveniently adjust appender thresholds (e.g. because a script
+To set an appender's threshold, use its C<threshold()> method:
+
+    $app->threshold( $FATAL );
+
+To conveniently adjust I<all> appender thresholds (e.g. because a script
 uses more_logging()), use
 
        # decrease thresholds of all appenders
@@ -2866,13 +2869,6 @@ Manual installation works as usual with
     make test
     make install
 
-If you're running B<Windows (98, 2000, NT, XP etc.)>, 
-and you're too lazy to rummage through all of 
-Log-Log4perl's dependencies, don't despair: We're providing a PPM package
-which installs easily with your Activestate Perl. Check
-L<Log::Log4perl::FAQ/"how_can_i_install_log__log4perl_on_microsoft_windows">
-for details.
-
 =head1 DEVELOPMENT
 
 Log::Log4perl is still being actively developed. We will
@@ -2898,7 +2894,7 @@ http://www.perl.com/pub/a/2002/09/11/log4perl.html
 =item [2]
 
 Ceki Gülcü, "Short introduction to log4j",
-http://jakarta.apache.org/log4j/docs/manual.html
+http://logging.apache.org/log4j/1.2/manual.html
 
 =item [3]
 
@@ -2940,13 +2936,14 @@ Contributors (in alphabetical order):
 Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
 Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
 Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
-Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
-Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
-Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
+Grundman, Paul Harrington, Alexander Hartmaier, David Hull, 
+Robert Jacobson, Jason Kohles, Jeff Macdonald, Markus Peter, 
+Brett Rann, Peter Rabbitson, Erik Selberg, Aaron Straup Cope, 
+Lars Thegler, David Viner, Mac Yang.
 
 =head1 LICENSE
 
-Copyright 2002-2012 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+Copyright 2002-2013 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
 and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify

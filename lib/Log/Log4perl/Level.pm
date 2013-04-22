@@ -272,9 +272,23 @@ C<Log::Log4perl::Level> explicitely.
 
 The numerical values assigned to these constants are purely virtual,
 only used by Log::Log4perl internally and can change at any time,
-so please don't make any assumptions.
+so please don't make any assumptions. You can test for numerical equality
+by directly comparing two level values, that's ok:
 
-If the caller wants to import these constants into a different namespace,
+    if( get_logger()->level() == $DEBUG ) {
+        print "The logger's level is DEBUG\n";
+    }
+
+But if you want to figure out which of two levels is more verbose, use
+Log4perl's own comparator:
+
+    if( Log::Log4perl::Level::isGreaterOrEqual( $level1, $level2 ) ) {
+        print Log::Log4perl::Level::to_level( $level1 ), 
+            " is equal or more verbose than ", 
+            Log::Log4perl::Level::to_level( $level2 ), "\n";
+    }
+
+If the caller wants to import level constants into a different namespace,
 it can be provided with the C<use> command:
 
     use Log::Log4perl::Level qw(MyNameSpace);
@@ -310,7 +324,7 @@ after which $numval could be used where a numerical value is required:
 
 =head1 LICENSE
 
-Copyright 2002-2012 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+Copyright 2002-2013 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
 and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
@@ -335,7 +349,8 @@ Contributors (in alphabetical order):
 Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
 Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
 Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
-Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
-Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
-Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
+Grundman, Paul Harrington, Alexander Hartmaier  David Hull, 
+Robert Jacobson, Jason Kohles, Jeff Macdonald, Markus Peter, 
+Brett Rann, Peter Rabbitson, Erik Selberg, Aaron Straup Cope, 
+Lars Thegler, David Viner, Mac Yang.
 

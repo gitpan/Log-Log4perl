@@ -94,7 +94,7 @@ sub file_open {
 
     umask($self->{umask}) if defined $self->{umask};
 
-    my $didnt_exist = ! -f $self->{filename};
+    my $didnt_exist = ! -e $self->{filename};
 
     if($self->{syswrite}) {
         sysopen $fh, "$self->{filename}", $sysmode or
@@ -336,6 +336,7 @@ If set, specifies that the owner of the newly created log file should
 be different from the effective user id of the running process.
 Only makes sense if the process is running as root. 
 Both numerical user ids and user names are acceptable.
+Log4perl does not attempt to change the ownership of I<existing> files.
 
 =item group
 
@@ -343,6 +344,7 @@ If set, specifies that the group of the newly created log file should
 be different from the effective group id of the running process.
 Only makes sense if the process is running as root.
 Both numerical group ids and group names are acceptable.
+Log4perl does not attempt to change the group membership of I<existing> files.
 
 =item utf8
 
@@ -446,7 +448,7 @@ Dave Rolsky's C<Log::Dispatch> appender framework.
 
 =head1 LICENSE
 
-Copyright 2002-2012 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
+Copyright 2002-2013 by Mike Schilli E<lt>m@perlmeister.comE<gt> 
 and Kevin Goess E<lt>cpan@goess.orgE<gt>.
 
 This library is free software; you can redistribute it and/or modify
@@ -471,7 +473,8 @@ Contributors (in alphabetical order):
 Ateeq Altaf, Cory Bennett, Jens Berthold, Jeremy Bopp, Hutton
 Davidson, Chris R. Donnelly, Matisse Enzer, Hugh Esco, Anthony
 Foiani, James FitzGibbon, Carl Franks, Dennis Gregorovic, Andy
-Grundman, Paul Harrington, David Hull, Robert Jacobson, Jason Kohles, 
-Jeff Macdonald, Markus Peter, Brett Rann, Peter Rabbitson, Erik
-Selberg, Aaron Straup Cope, Lars Thegler, David Viner, Mac Yang.
+Grundman, Paul Harrington, Alexander Hartmaier  David Hull, 
+Robert Jacobson, Jason Kohles, Jeff Macdonald, Markus Peter, 
+Brett Rann, Peter Rabbitson, Erik Selberg, Aaron Straup Cope, 
+Lars Thegler, David Viner, Mac Yang.
 
