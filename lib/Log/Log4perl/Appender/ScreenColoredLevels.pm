@@ -10,6 +10,10 @@ use strict;
 use Term::ANSIColor qw();
 use Log::Log4perl::Level;
 
+BEGIN {
+    $Term::ANSIColor::EACHLINE="\n";
+}
+
 ##################################################
 sub new {
 ##################################################
@@ -70,6 +74,8 @@ sub log {
 1;
 
 __END__
+
+=encoding utf8
 
 =head1 NAME
 

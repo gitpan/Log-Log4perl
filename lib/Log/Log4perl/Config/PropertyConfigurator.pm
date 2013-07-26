@@ -16,6 +16,8 @@ our %NOT_A_MULT_VALUE = map { $_ => 1 }
 
 use constant _INTERNAL_DEBUG => 0;
 
+our $COMMENT_REGEX = qr/[#;!]/;
+
 ################################################
 sub parse {
 ################################################
@@ -32,7 +34,7 @@ sub parse {
 
     while (@$text) {
         local $_ = shift @$text;
-        s/^\s*#.*//;
+        s/^\s*$COMMENT_REGEX.*//;
         next unless /\S/;
     
         my @parts = ();
@@ -41,7 +43,7 @@ sub parse {
             my $prev = $1;
             my $next = shift(@$text);
             $next =~ s/^ +//g;  #leading spaces
-            $next =~ s/^#.*//;
+            $next =~ s/^$COMMENT_REGEX.*//;
             $_ = $prev. $next;
             chomp;
         }
@@ -135,6 +137,8 @@ sub value {
 1;
 
 __END__
+
+=encoding utf8
 
 =head1 NAME
 

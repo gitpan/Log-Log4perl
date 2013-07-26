@@ -289,7 +289,7 @@ sub _init {
             'dont_reset_all');
 
         if(exists $additivity{$name}) {
-            $logger->additivity($additivity{$name});
+            $logger->additivity($additivity{$name}, 1);
         }
 
         for my $appname (@appnames) {
@@ -962,6 +962,8 @@ sub var_subst {
 
 __END__
 
+=encoding utf8
+
 =head1 NAME
 
 Log::Log4perl::Config - Log4perl configuration file syntax
@@ -975,8 +977,25 @@ The format is the same as the one as used for C<log4j>, just with
 a few perl-specific extensions, like enabling the C<Bar::Twix>
 syntax instead of insisting on the Java-specific C<Bar.Twix>.
 
-Comment lines (starting with arbitrary whitespace and a #) and
-blank lines (all whitespace or empty) are ignored.
+Comment lines and blank lines (all whitespace or empty) are ignored.
+
+Comment lines may start with arbitrary whitespace followed by one of:
+
+=over 4
+
+=item # - Common comment delimiter
+
+=item ! - Java .properties file comment delimiter accepted by log4j
+
+=item ; - Common .ini file comment delimiter
+
+=back
+
+Comments at the end of a line are not supported. So if you write
+
+    log4perl.appender.A1.filename=error.log #in current dir
+
+you will find your messages in a file called C<error.log #in current dir>.
 
 Also, blanks between syntactical entities are ignored, it doesn't 
 matter if you write

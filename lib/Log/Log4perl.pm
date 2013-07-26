@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.41';
+our $VERSION = '1.42';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -614,6 +614,8 @@ sub remove_logger {
 1;
 
 __END__
+
+=encoding utf8
 
 =head1 NAME
 
