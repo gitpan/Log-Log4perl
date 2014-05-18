@@ -1,5 +1,12 @@
 #Testing if the file-appender appends in default mode
 
+END {
+    # Must be before enabling the Log4Perl stuff, or file will still
+    # be open and locked (under Win32) on program close.
+
+    unlink_testfiles();
+    }
+
 BEGIN {
     if($ENV{INTERNAL_DEBUG}) {
         require Log::Log4perl::InternalDebug;
@@ -37,10 +44,6 @@ my $testfile = File::Spec->catfile($WORK_DIR, "test26.log");
 my $testpath = File::Spec->catfile($WORK_DIR, "test26");
 
 BEGIN {plan tests => 26}
-
-END {
-    unlink_testfiles();
-    }
 
 sub unlink_testfiles {
     unlink $testfile;
@@ -458,30 +461,34 @@ is($content, "INFO - Shu-wa-chi!\n");
 # Create path with umask if it is not already created
 ####################################################
 
-my $oldumask = umask;
+SKIP: {
+  skip "Umask not supported on Win32", 3 if $^O eq "MSWin32";
 
-$testmkpathfile = File::Spec->catfile("${testpath}_1", "test26.log");
-
-$data = <<EOT;
-log4j.category = INFO, FileAppndr
-log4j.appender.FileAppndr              = Log::Log4perl::Appender::File
-log4j.appender.FileAppndr.filename     = $testmkpathfile
-log4j.appender.FileAppndr.layout       = Log::Log4perl::Layout::SimpleLayout
-log4j.appender.FileAppndr.umask        = 0026
-log4j.appender.FileAppndr.mkpath       = 1
-log4j.appender.FileAppndr.mkpath_umask = 0027
+  my $oldumask = umask;
+  
+  $testmkpathfile = File::Spec->catfile("${testpath}_1", "test26.log");
+  
+  $data = <<EOT;
+  log4j.category = INFO, FileAppndr
+  log4j.appender.FileAppndr              = Log::Log4perl::Appender::File
+  log4j.appender.FileAppndr.filename     = $testmkpathfile
+  log4j.appender.FileAppndr.layout       = Log::Log4perl::Layout::SimpleLayout
+  log4j.appender.FileAppndr.umask        = 0026
+  log4j.appender.FileAppndr.mkpath       = 1
+  log4j.appender.FileAppndr.mkpath_umask = 0027
 EOT
-
-Log::Log4perl::init(\$data);
-$log = Log::Log4perl::get_logger("");
-$log->info("Shu-wa-chi!");
-
-my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size, $atime,$mtime,$ctime,$blksize,$blocks) = stat("${testpath}_1");
-
-is($mode & 07777,0750);
-
- ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size, $atime,$mtime,$ctime,$blksize,$blocks) = stat($testmkpathfile);
-
-is($mode & 07777,0640);
-
-is(umask,$oldumask);
+  
+  Log::Log4perl::init(\$data);
+  $log = Log::Log4perl::get_logger("");
+  $log->info("Shu-wa-chi!");
+  
+  my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size, $atime,$mtime,$ctime,$blksize,$blocks) = stat("${testpath}_1");
+  
+  is($mode & 07777,0750); #Win32 777
+  
+   ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size, $atime,$mtime,$ctime,$blksize,$blocks) = stat($testmkpathfile);
+  
+  is($mode & 07777,0640); #Win32 666
+  
+  is(umask,$oldumask);
+};

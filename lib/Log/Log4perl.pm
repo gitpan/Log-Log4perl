@@ -14,7 +14,7 @@ use Log::Log4perl::Level;
 use Log::Log4perl::Config;
 use Log::Log4perl::Appender;
 
-our $VERSION = '1.43';
+our $VERSION = '1.44';
 
    # set this to '1' if you're using a wrapper
    # around Log::Log4perl
@@ -929,7 +929,7 @@ Rather than doing the following:
 
 you can use the following:
 
-    $logger->logdie();
+    $logger->logdie($err);
 
 And if instead of using
 
@@ -939,7 +939,7 @@ And if instead of using
 to both issue a warning via Perl's warn() mechanism and make sure you have
 the same message in the log file as well, use:
 
-    $logger->logwarn();
+    $logger->logwarn($message);
 
 Since there is
 an ERROR level between WARN and FATAL, there are two additional helper
@@ -2036,7 +2036,9 @@ as such:
     
     GetOptions("v+" => \$v, ...);
 
-    $logger->more_logging($v);  # inc logging level once for each -v in ARGV
+    if( $v ) {
+      $logger->more_logging($v); # inc logging level once for each -v in ARGV
+    }
 
 =head2 Custom Log Levels
 
