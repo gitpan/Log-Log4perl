@@ -24,4 +24,4 @@ requires:
 resources:
   MailingList: mailto:log4perl-devel@lists.sourceforge.net
   repository: http://github.com/mschilli/log4perl
-version: '1.45'
+version: '1.46'
